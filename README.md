@@ -65,7 +65,7 @@ cargo build --release
 .\target\release\truffle.exe
 ```
 
-For a build to share, `toolsuild-release.ps1` does the same with your own folder names left out
+For a build to share, `tools\build-release.ps1` does the same with your own folder names left out
 of the exe.
 
 The release build is one self-contained `truffle.exe` of about 15 MB, with no installer and no
