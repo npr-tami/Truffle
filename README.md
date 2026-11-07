@@ -3,6 +3,8 @@
 Truffle is a small, fast Spotify player for Windows, written in Rust. It is a single native
 window (egui with OpenGL). It does not embed a browser.
 
+**[Download truffle.exe](https://github.com/npr-tami/Truffle/releases/latest)** · [What's new](CHANGELOG.md)
+
 It is built around **true shuffle**. Shuffle is a uniform Fisher–Yates shuffle, so every order of
 your playlist is equally likely. On top of that are a few rules you can switch on or off:
 
@@ -62,6 +64,9 @@ cd truffle
 cargo build --release
 .\target\release\truffle.exe
 ```
+
+For a build to share, `toolsuild-release.ps1` does the same with your own folder names left out
+of the exe.
 
 The release build is one self-contained `truffle.exe` of about 15 MB, with no installer and no
 runtime files. You can copy it anywhere. It carries its own icon and version details. If the
