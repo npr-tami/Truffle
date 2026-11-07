@@ -1,0 +1,13 @@
+/target
+
+# Build output, logs and secrets
+**/target/
+*.pdb
+*.log
+.env*
+!.env.example
+*.pem
+*.key
+secrets*
+Thumbs.db
+.DS_Store

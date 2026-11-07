@@ -1,0 +1,68 @@
+[package]
+name = "truffle"
+version = "0.1.0"
+edition = "2024"
+description = "A small, fast Spotify player for Windows, built around true shuffle"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0.104"
+base64 = "0.23.1"
+bytes = "1"
+directories = "6.0.0"
+discord-rich-presence = "1.1.0"
+eframe = { version = "0.36.2", default-features = false, features = ["glow", "default_fonts"] }
+egui = { version = "0.36.2", default-features = false, features = ["default_fonts"] }
+egui_extras = { version = "0.36.2", default-features = false, features = ["image"] }
+env_logger = "0.11.11"
+futures = "0.3.34"
+# Builds the requests sent straight through the session's HTTP client (playlist changes, search).
+http = "1"
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
+librespot-core = "0.8"
+librespot-metadata = "0.8"
+librespot-oauth = "0.8"
+librespot-playback = "0.8"
+librespot-protocol = "0.8"
+log = "0.4.34"
+md-5 = "0.11"
+open = "5.4.4"
+protobuf = "3.7"
+rand = "0.10.3"
+# Draws the icons from their SVG source at the exact size shown (ui/svgicon.rs), and the app icons
+# (examples/make_icon.rs).
+resvg = { version = "0.48", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "native-tls", "http2", "form", "query"] }
+rfd = { version = "0.15", default-features = false }
+rodio = { version = "0.21", default-features = false, features = ["playback"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.153"
+sha2 = "0.11.0"
+souvlaki = "0.8.3"
+# Decodes the AAC (m4a) audio of the YouTube sound source; the same copy librespot uses.
+symphonia = { version = "0.5.5", default-features = false, features = ["isomp4", "aac"] }
+tokio = { version = "1.53.2", features = ["full"] }
+tray-icon = "0.26.1"
+url = "2.5.8"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[build-dependencies]
+winresource = "0.1.31"
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.61", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_UI_Shell"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Registry", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+
+
+# librespot-core with one change: a free account isn't closed at login (see vendor/README.md).
+[patch.crates-io]
+librespot-core = { path = "vendor/librespot-core-0.8.0" }

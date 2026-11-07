@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Truffle's logo, the black deck: a turntable, its chrome tonearm on a black record, and the glint where the needle meets the groove. Rendered into the app icons by examples/make_icon.rs. -->
+  <defs>
+    <!-- Glint's liquid chrome: the same stops as Glint's wordmark and star. -->
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.2" stop-color="#e4edf9"/><stop offset="0.4" stop-color="#9cb0cc"/>
+      <stop offset="0.5" stop-color="#44526e"/><stop offset="0.535" stop-color="#121827"/><stop offset="0.57" stop-color="#3f4d68"/>
+      <stop offset="0.7" stop-color="#aebfd6"/><stop offset="0.84" stop-color="#f5f9ff"/><stop offset="1" stop-color="#97a7bf"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#c6d0de"/><stop offset="0.55" stop-color="#6f7d93"/><stop offset="1" stop-color="#f2f6fb"/>
+    </linearGradient>
+    <radialGradient id="vinyl" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1a1c22"/><stop offset="0.7" stop-color="#0c0d11"/><stop offset="1" stop-color="#050608"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.35" stop-color="#cfe0ff" stop-opacity=".28"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.68" stop-color="#cfe0ff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff"/><stop offset="1" stop-color="#cfe9ff"/></radialGradient>
+    <filter id="bevel" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="7" specularConstant="1.1" specularExponent="24" lighting-color="#fff" result="s"><feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>
+      <feComposite in="s" in2="SourceAlpha" operator="in" result="s2"/>
+      <feComposite in="SourceGraphic" in2="s2" operator="arithmetic" k1="0" k2="1" k3="0.8" k4="0"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".5"/></filter>
+    <filter id="spark" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <!-- The plinth's metal: brushed silver with one soft bend of light, or black with a chrome edge. -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#f6f8fb"/><stop offset="0.42" stop-color="#d5dbe5"/><stop offset="0.5" stop-color="#a9b3c3"/>
+      <stop offset="0.62" stop-color="#cbd2dd"/><stop offset="1" stop-color="#e9edf3"/>
+    </linearGradient>
+    <linearGradient id="plateDark" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2a2e38"/><stop offset="0.5" stop-color="#171a21"/><stop offset="1" stop-color="#0e1015"/>
+    </linearGradient>
+      <!-- The plinth's metal: brushed silver with one soft bend of light, or black with a chrome edge. -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#f6f8fb"/><stop offset="0.42" stop-color="#d5dbe5"/><stop offset="0.5" stop-color="#a9b3c3"/>
+      <stop offset="0.62" stop-color="#cbd2dd"/><stop offset="1" stop-color="#e9edf3"/>
+    </linearGradient>
+    <linearGradient id="plateDark" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2a2e38"/><stop offset="0.5" stop-color="#171a21"/><stop offset="1" stop-color="#0e1015"/>
+    </linearGradient>
+  </defs>
+  <!-- The plinth: black, framed in chrome like Glint's box. -->
+  <g filter="url(#shadow)"><rect x="14" y="30" width="228" height="196" rx="30" fill="url(#plateDark)"/>
+    <rect x="18" y="34" width="220" height="188" rx="26" fill="none" stroke="url(#rim)" stroke-width="9"/>
+    <rect x="18" y="34" width="220" height="188" rx="26" fill="none" stroke="url(#chrome)" stroke-width="4" filter="url(#bevel)"/></g>
+  <!-- The record on its platter. -->
+  <circle cx="110" cy="131" r="84" fill="#000" opacity=".35"/>
+  <circle cx="110" cy="128" r="83" fill="#5a6476"/>
+  <circle cx="110" cy="128" r="78" fill="url(#vinyl)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="1"><circle cx="110" cy="128" r="72"/><circle cx="110" cy="128" r="67"/><circle cx="110" cy="128" r="62"/><circle cx="110" cy="128" r="57"/><circle cx="110" cy="128" r="52"/><circle cx="110" cy="128" r="47"/><circle cx="110" cy="128" r="42"/><circle cx="110" cy="128" r="37"/></g>
+  <circle cx="110" cy="128" r="76" fill="url(#sheen)"/>
+  <circle cx="110" cy="128" r="26" fill="url(#chrome)" filter="url(#bevel)"/>
+  <circle cx="110" cy="128" r="4" fill="#0a0d15"/>
+  <!-- The chrome tonearm, its needle in the groove. -->
+  <g filter="url(#shadow)">
+    <circle cx="206" cy="66" r="21" fill="#0a0d15" opacity=".55"/>
+    <path d="M206,66 L204,142 L156,168" fill="none" stroke="#0a0d15" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M206,66 L204,142 L156,168" fill="none" stroke="url(#rim)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M206,66 L204,142 L156,168" fill="none" stroke="url(#chrome)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#bevel)"/>
+    <circle cx="206" cy="66" r="16" fill="url(#chrome)" filter="url(#bevel)" stroke="#0a0d15" stroke-width="3"/>
+    <rect x="147" y="161" width="18" height="12" rx="3" fill="#1a1d25" stroke="#0a0d15" stroke-width="2" transform="rotate(-38 156 168)"/>
+  </g>
+  <!-- The speed knob and the power light. -->
+  <circle cx="208" cy="196" r="12" fill="#0a0d15" opacity=".6"/><circle cx="208" cy="195" r="10" fill="url(#chrome)" filter="url(#bevel)"/>
+  <circle cx="178" cy="203" r="4" fill="#0a0d15"/><circle cx="178" cy="203" r="2.6" fill="#ff5a6a"/>
+  <!-- The glint, where the needle meets the groove. -->
+  <g filter="url(#spark)"><circle cx="156" cy="168" r="12" fill="#cfe9ff" opacity=".35"/><path d="M156,147 Q159.7,163.38 172.8,168 Q159.7,172.62 156,189 Q152.3,172.62 139.2,168 Q152.3,163.38 156,147Z" fill="url(#glow)"/></g>
+</svg>
