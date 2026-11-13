@@ -473,7 +473,7 @@ impl TruffleApp {
 
     /// The sleep timer menu on `resp` (with the mini player first when `with_mini`, for "more").
     /// The volume box, while one is open, over `area` (the mute button and the volume line).
-    fn volume_box_ui(&mut self, ui: &Ui, area: Rect) {
+    pub(super) fn volume_box_ui(&mut self, ui: &Ui, area: Rect) {
         let Some(mut text) = self.volume_box.take() else { return };
         match volume_box(ui, &self.palette, area, &mut text, self.volume_ui.round() as u8) {
             VolumeBox::Open => self.volume_box = Some(text),

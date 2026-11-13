@@ -1,5 +1,7 @@
 //! The interface size, per screen. Each screen keeps its own: the one set there (Ctrl + / Ctrl −,
 //! or Settings), else one picked from the screen's height, so Truffle isn't tiny on a big screen.
+//! The picked one also fits the full window: never bigger than the window has room for (at least
+//! the room the default window has at 100%), never below 100%.
 //! Ctrl 0 goes back to the picked one. "Grow with the window" makes it bigger on a wide window,
 //! once the window stops changing size. Sizes are egui zoom factors.
 //!
@@ -20,7 +22,10 @@ const MIN_SIZE: f32 = 0.6;
 const MAX_SIZE: f32 = 2.5;
 /// How much Ctrl + and Ctrl − change the size.
 const STEP: f32 = 0.1;
-/// "Grow with the window" follows a new width once it has stayed this long.
+/// The window the layout is made for at 100% (Windows' units): the default full window.
+const ROOM: egui::Vec2 = window::FULL_DEFAULT_SIZE;
+/// "Grow with the window" (and the auto size's fit to the window) follows a new size once it has
+/// stayed this long.
 const GROW_SETTLE: Duration = Duration::from_millis(300);
 /// Shown once on each screen auto size made bigger.
 const BIG_SCREEN_TIP: &str = "Big screen: Truffle made itself bigger. Ctrl + and Ctrl − change it.";
@@ -95,6 +100,27 @@ pub fn auto_size(height: f32) -> f32 {
     round((1.0 + 0.75 * (height / 1080.0 - 1.0)).clamp(1.0, MAX_SIZE))
 }
 
+/// The biggest auto size a window `width` x `height` (Windows' units, so the size itself doesn't
+/// change it) has room for: as much room as [`ROOM`] at 100%, rounded down to 0.05, never below
+/// 1.0. A 1400 x 790 window: 1.0.
+pub fn window_fit(width: f32, height: f32) -> f32 {
+    // f32::min would drop a NaN side, so check both.
+    let fit = (width / ROOM.x).min(height / ROOM.y);
+    if !width.is_finite() || !height.is_finite() || !fit.is_finite() {
+        return MAX_SIZE;
+    }
+    // Down, not to the nearest: the room is at least what the layout asks for (the tiny bit is
+    // for float noise on an exact step).
+    ((fit * 20.0 + 1e-3).floor() / 20.0).clamp(1.0, MAX_SIZE)
+}
+
+/// The auto size on a screen `height` tall in a window that `fit`s ([`window_fit`]): the smaller
+/// of the two, never below 1.0.
+pub fn fitted_auto_size(height: f32, fit: f32) -> f32 {
+    let fit = if fit.is_finite() { fit.max(1.0) } else { MAX_SIZE };
+    auto_size(height).min(round(fit))
+}
+
 /// How much "Grow with the window" makes the interface bigger on a window `width` wide (Windows'
 /// units, so the size itself doesn't change it): not up to 1400, 1.5 times from 2100.
 pub fn growth(width: f32) -> f32 {
@@ -139,9 +165,9 @@ pub fn set_size(prefs: &mut Settings, screen: Option<&Screen>, size: Option<f32>
     }
 }
 
-/// Ctrl + / Ctrl − change the size on `screen`, Ctrl 0 forgets it. Whether the settings changed.
-pub fn press(prefs: &mut Settings, screen: Option<&Screen>, key: ZoomKey) -> bool {
-    let size = size_on(prefs, screen);
+/// Ctrl + / Ctrl − change the size on `screen` (now `size`, the one that shows), Ctrl 0 forgets
+/// it. Whether the settings changed.
+pub fn press(prefs: &mut Settings, screen: Option<&Screen>, size: f32, key: ZoomKey) -> bool {
     match key {
         ZoomKey::Bigger => set_size(prefs, screen, Some(size + STEP)),
         ZoomKey::Smaller => set_size(prefs, screen, Some(size - STEP)),
@@ -216,6 +242,48 @@ impl Grow {
     }
 }
 
+/// The auto size's fit to the window ([`window_fit`]), following a new window size once it has
+/// stayed for [`GROW_SETTLE`] (so the size doesn't jump while the window is dragged).
+#[derive(Clone, Copy, Debug)]
+pub struct Fit {
+    /// The window size last seen (Windows' units), and since when.
+    size: Option<([f32; 2], Instant)>,
+    /// The fit in use (until the window is known: no limit).
+    pub fit: f32,
+}
+
+impl Default for Fit {
+    fn default() -> Self {
+        Self { size: None, fit: MAX_SIZE }
+    }
+}
+
+impl Fit {
+    /// The window is `width` x `height` (the first size counts at once). While a new fit waits
+    /// for the size to stay, how long it still waits.
+    pub fn follow(&mut self, width: f32, height: f32, now: Instant) -> Option<Duration> {
+        let since = match self.size {
+            Some(([w, h], since)) if (w - width).abs() <= 0.5 && (h - height).abs() <= 0.5 => since,
+            Some(_) => now,
+            None => {
+                self.fit = window_fit(width, height);
+                now
+            }
+        };
+        self.size = Some(([width, height], since));
+        let target = window_fit(width, height);
+        let waited = now.saturating_duration_since(since);
+        if (target - self.fit).abs() < 0.001 {
+            None
+        } else if waited >= GROW_SETTLE {
+            self.fit = target;
+            None
+        } else {
+            Some(GROW_SETTLE - waited)
+        }
+    }
+}
+
 /// What the UI keeps to follow the window's screen and width.
 #[derive(Default)]
 pub struct ScreenZoom {
@@ -227,6 +295,7 @@ pub struct ScreenZoom {
     /// Opening on a screen (looked up before the first pass), acted on in the first drawn pass.
     arrived: Option<Arrival>,
     grow: Grow,
+    fit: Fit,
     /// The zoom of the last pass, and the one this frame's window sizes were measured with.
     last_zoom: f32,
     measured_zoom: f32,
@@ -241,15 +310,18 @@ impl ScreenZoom {
         let hwnd = window::main_window_handle();
         let monitor = hwnd.and_then(window::monitor_of);
         let mut grow = Grow::default();
-        // Opening maximized, it soon has its screen's width.
+        let mut fit = Fit::default();
+        // Opening maximized, it soon has its screen's size.
         let rect = hwnd.and_then(|h| if prefs.main_window_maximized { window::work_area(h) } else { window::visible_rect(h) });
         if let (Some(r), Some(m)) = (rect, &monitor) {
-            grow.follow(r.width() as f32 / m.scale, Instant::now());
+            let (w, h, now) = (r.width() as f32 / m.scale, r.height() as f32 / m.scale, Instant::now());
+            grow.follow(w, now);
+            fit.follow(w, h, now);
         }
         let screen = monitor.map(Screen::from);
         let arrived = screen.as_ref().map(|s| arrive(prefs, s));
         let now = ctx.zoom_factor();
-        let zoom = Self { screen, arrived, grow, last_zoom: now, measured_zoom: now, ..Self::default() };
+        let zoom = Self { screen, arrived, grow, fit, last_zoom: now, measured_zoom: now, ..Self::default() };
         ctx.set_zoom_factor(zoom.zoom(prefs, false));
         zoom
     }
@@ -266,15 +338,19 @@ impl ScreenZoom {
         self.measured_zoom
     }
 
-    /// The size on the window's screen.
-    pub fn size(&self, prefs: &Settings) -> f32 {
-        size_on(prefs, self.screen.as_ref())
+    /// The size on the window's screen: the one set there, else its auto size, fitted to the full
+    /// window (the mini player's size follows the interface size, so it keeps the screen's).
+    pub fn size(&self, prefs: &Settings, mini: bool) -> f32 {
+        match &self.screen {
+            Some(s) if !mini && !is_set(prefs, Some(s)) => fitted_auto_size(s.height, self.fit.fit),
+            screen => size_on(prefs, screen.as_ref()),
+        }
     }
 
     /// The zoom to use: the size on the window's screen, times its growth with "Grow with the
     /// window" on (the full window only: the mini player keeps the screen's size).
     pub fn zoom(&self, prefs: &Settings, mini: bool) -> f32 {
-        let size = self.size(prefs);
+        let size = self.size(prefs, mini);
         if prefs.grow_with_window && !mini { sanitize(size * self.grow.factor) } else { size }
     }
 }
@@ -288,17 +364,23 @@ impl TruffleApp {
             self.arrived(arrival);
         }
         self.follow_screen(ctx, measured);
-        if let Some(key) = take_zoom_key(ctx).or_else(|| self.screen_zoom.key.take())
-            && press(&mut self.prefs, self.screen_zoom.screen.as_ref(), key)
-        {
-            self.prefs_changed();
+        if let Some(key) = take_zoom_key(ctx).or_else(|| self.screen_zoom.key.take()) {
+            let size = self.screen_zoom.size(&self.prefs, self.shell.mini);
+            if press(&mut self.prefs, self.screen_zoom.screen.as_ref(), size, key) {
+                self.prefs_changed();
+            }
         }
+        // The window's inner size in Windows' units (points times the zoom they were measured
+        // with): a new zoom doesn't change it, so it can't feed back into the size.
         if !self.shell.mini
             && let Some(r) = ctx.input(|i| i.viewport().inner_rect)
-            && let Some(wait) = self.screen_zoom.grow.follow(r.width() * measured, Instant::now())
-            && self.prefs.grow_with_window
         {
-            ctx.request_repaint_after(wait);
+            let (w, h, now) = (r.width() * measured, r.height() * measured, Instant::now());
+            let grow = self.screen_zoom.grow.follow(w, now).filter(|_| self.prefs.grow_with_window);
+            let fit = self.screen_zoom.fit.follow(w, h, now);
+            if let Some(wait) = [grow, fit].into_iter().flatten().min() {
+                ctx.request_repaint_after(wait);
+            }
         }
         let zoom = self.screen_zoom.zoom(&self.prefs, self.shell.mini);
         if (zoom - ctx.zoom_factor()).abs() > 0.001 {
@@ -376,6 +458,64 @@ mod tests {
     }
 
     #[test]
+    fn the_auto_size_fits_the_window() {
+        // The default window has room for 100%, twice its size for 200%; rounded down.
+        assert_eq!(window_fit(1180.0, 760.0), 1.0);
+        assert_eq!(window_fit(2360.0, 1520.0), 2.0);
+        assert!((window_fit(1475.0, 950.0) - 1.25).abs() < 1e-6);
+        assert!((window_fit(1470.0, 2000.0) - 1.2).abs() < 1e-6);
+        // The tighter side counts; never below 100%; nonsense counts as room enough.
+        assert_eq!(window_fit(1400.0, 790.0), 1.0);
+        assert_eq!(window_fit(5000.0, 400.0), 1.0);
+        assert_eq!(window_fit(f32::NAN, 800.0), MAX_SIZE);
+        // A 1440 screen picks 125%; a 1400 x 790 window on it gets 100%.
+        assert_eq!(fitted_auto_size(1440.0, window_fit(1400.0, 790.0)), 1.0);
+        // Maximized there: the screen's 125%.
+        assert!((fitted_auto_size(1440.0, window_fit(2560.0, 1380.0)) - 1.25).abs() < 1e-6);
+        // In between: what the window has room for.
+        assert!((fitted_auto_size(2160.0, window_fit(1770.0, 1140.0)) - 1.5).abs() < 1e-6);
+        // A small screen stays at 100% even in a big window.
+        assert_eq!(fitted_auto_size(1080.0, 2.5), 1.0);
+        assert!((fitted_auto_size(1440.0, f32::NAN) - 1.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn the_fit_waits_until_the_window_stops_changing_size() {
+        let t = Instant::now();
+        let ms = |n: u64| t + Duration::from_millis(n);
+        let mut fit = Fit::default();
+        // The first size counts at once.
+        assert_eq!(fit.follow(2360.0, 1520.0, t), None);
+        assert_eq!(fit.fit, 2.0);
+        // Dragged smaller: nothing changes until it has stayed 0.3 s.
+        assert_eq!(fit.follow(1400.0, 790.0, ms(100)), Some(GROW_SETTLE));
+        assert_eq!(fit.follow(1400.0, 790.0, ms(300)), Some(Duration::from_millis(100)));
+        assert_eq!(fit.fit, 2.0);
+        assert_eq!(fit.follow(1400.0, 790.0, ms(400)), None);
+        assert_eq!(fit.fit, 1.0);
+        // A new size with the same fit has nothing to wait for.
+        assert_eq!(fit.follow(1300.0, 780.0, ms(500)), None);
+    }
+
+    #[test]
+    fn auto_fits_the_window_and_a_set_size_does_not() {
+        let mut prefs = Settings::default();
+        let mut zoom = ScreenZoom { screen: Some(screen("A 2560x1440", 1440.0)), ..ScreenZoom::default() };
+        // The window not known yet: the screen's auto size.
+        assert_eq!(zoom.size(&prefs, false), 1.25);
+        zoom.fit.follow(1400.0, 790.0, Instant::now());
+        assert_eq!(zoom.size(&prefs, false), 1.0);
+        // The mini player keeps the screen's.
+        assert_eq!(zoom.size(&prefs, true), 1.25);
+        // Ctrl + goes up from what shows; a set size stays as set.
+        let shown = zoom.size(&prefs, false);
+        assert!(press(&mut prefs, zoom.screen.as_ref(), shown, ZoomKey::Bigger));
+        assert!((zoom.size(&prefs, false) - 1.1).abs() < 1e-6);
+        set_size(&mut prefs, zoom.screen.as_ref(), Some(1.5));
+        assert_eq!(zoom.size(&prefs, false), 1.5);
+    }
+
+    #[test]
     fn a_wide_window_grows_up_to_half_again() {
         for (width, factor) in [(800.0, 1.0), (1400.0, 1.0), (1540.0, 1.1), (1750.0, 1.25), (2100.0, 1.5), (3440.0, 1.5)] {
             assert!((growth(width) - factor).abs() < 1e-6, "{width}: {} not {factor}", growth(width));
@@ -430,23 +570,23 @@ mod tests {
         // Auto until set.
         assert_eq!((size_on(&prefs, Some(&big)), size_on(&prefs, Some(&laptop))), (1.75, 1.0));
         // Ctrl + on the big screen: only its size changes.
-        assert!(press(&mut prefs, Some(&big), ZoomKey::Bigger));
+        assert!(press(&mut prefs, Some(&big), 1.75, ZoomKey::Bigger));
         assert!((size_on(&prefs, Some(&big)) - 1.85).abs() < 1e-6);
         assert_eq!(size_on(&prefs, Some(&laptop)), 1.0);
-        assert!(press(&mut prefs, Some(&laptop), ZoomKey::Smaller));
+        assert!(press(&mut prefs, Some(&laptop), 1.0, ZoomKey::Smaller));
         assert!((size_on(&prefs, Some(&laptop)) - 0.9).abs() < 1e-6);
         // Settings sets it; setting the same size again changes nothing.
         assert!(set_size(&mut prefs, Some(&big), Some(1.5)));
         assert!(!set_size(&mut prefs, Some(&big), Some(1.5)));
         assert_eq!(size_on(&prefs, Some(&big)), 1.5);
         // Ctrl 0 forgets it: back to auto, there only.
-        assert!(press(&mut prefs, Some(&big), ZoomKey::Auto));
-        assert!(!press(&mut prefs, Some(&big), ZoomKey::Auto));
+        assert!(press(&mut prefs, Some(&big), 1.5, ZoomKey::Auto));
+        assert!(!press(&mut prefs, Some(&big), 1.75, ZoomKey::Auto));
         assert!(!is_set(&prefs, Some(&big)) && is_set(&prefs, Some(&laptop)));
         assert_eq!(size_on(&prefs, Some(&big)), 1.75);
         // At the ends, Ctrl + and Ctrl − stop.
         set_size(&mut prefs, Some(&big), Some(2.5));
-        press(&mut prefs, Some(&big), ZoomKey::Bigger);
+        press(&mut prefs, Some(&big), 2.5, ZoomKey::Bigger);
         assert_eq!(size_on(&prefs, Some(&big)), 2.5);
     }
 

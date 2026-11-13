@@ -89,11 +89,29 @@ fn next_round(offset: Duration, last: Duration, step: Duration) -> Duration {
     offset + last + step.max(Duration::from_millis(1))
 }
 
+/// The decoded frames' width, height and stride (bytes from one row to the next; negative when
+/// the bottom row comes first), from the reader's current media type.
+///
+/// # Safety
+/// `reader` must be a live source reader on this (COM-initialised) thread.
+#[cfg(windows)]
+unsafe fn frame_format(reader: &windows::Win32::Media::MediaFoundation::IMFSourceReader, stream: u32) -> windows::core::Result<(usize, usize, i32)> {
+    use windows::Win32::Media::MediaFoundation::{MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_SIZE};
+    // SAFETY: plain queries on a live reader (the caller's promise).
+    unsafe {
+        let current = reader.GetCurrentMediaType(stream)?;
+        let size = current.GetUINT64(&MF_MT_FRAME_SIZE)?;
+        let (width, height) = ((size >> 32) as usize, (size & 0xffff_ffff) as usize);
+        let stride = current.GetUINT32(&MF_MT_DEFAULT_STRIDE).map_or((width * 4) as i32, |s| s as i32);
+        Ok((width, height, stride))
+    }
+}
+
 #[cfg(windows)]
 fn decode(path: &Path, tx: &SyncSender<Frame>, stop: &AtomicBool) -> windows::core::Result<()> {
     use windows::Win32::Media::MediaFoundation::*;
     use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
-    use windows::core::HSTRING;
+    use windows::core::{HSTRING, Interface};
 
     // SAFETY: COM and Media Foundation are started and stopped on this thread, around their use;
     // the buffer is read only while it is locked.
@@ -116,10 +134,7 @@ fn decode(path: &Path, tx: &SyncSender<Frame>, stop: &AtomicBool) -> windows::co
                 rgb.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)?;
                 rgb.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_RGB32)?;
                 reader.SetCurrentMediaType(stream, None, &rgb)?;
-                let current = reader.GetCurrentMediaType(stream)?;
-                let size = current.GetUINT64(&MF_MT_FRAME_SIZE)?;
-                let (width, height) = ((size >> 32) as usize, (size & 0xffff_ffff) as usize);
-                let stride = current.GetUINT32(&MF_MT_DEFAULT_STRIDE).map_or((width * 4) as i32, |s| s as i32);
+                let (mut width, mut height, mut stride) = frame_format(&reader, stream)?;
                 let mut frames = 0;
                 loop {
                     if stop.load(Ordering::Relaxed) {
@@ -130,6 +145,11 @@ fn decode(path: &Path, tx: &SyncSender<Frame>, stop: &AtomicBool) -> windows::co
                     if flags & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
                         break;
                     }
+                    // The decoder can change the frame size or the rows' padding mid-stream: read
+                    // with the old one, the picture smears into stripes.
+                    if flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED.0 as u32 != 0 {
+                        (width, height, stride) = frame_format(&reader, stream)?;
+                    }
                     let Some(sample) = sample else { continue };
                     let at = Duration::from_nanos(u64::try_from(time).unwrap_or(0) * 100);
                     if at > last {
@@ -137,11 +157,29 @@ fn decode(path: &Path, tx: &SyncSender<Frame>, stop: &AtomicBool) -> windows::co
                     }
                     last = at;
                     let buffer = sample.ConvertToContiguousBuffer()?;
-                    let (mut data, mut len) = (std::ptr::null_mut(), 0u32);
-                    buffer.Lock(&mut data, None, Some(&mut len))?;
-                    let pitch = row_pitch(len as usize, width, height, stride);
-                    let image = if data.is_null() { None } else { to_image(std::slice::from_raw_parts(data, len as usize), width, height, pitch) };
-                    buffer.Unlock()?;
+                    let image = if let Ok(two_d) = buffer.cast::<IMF2DBuffer>() {
+                        // A 2D buffer says where its first row starts and the real pitch.
+                        let (mut scanline0, mut pitch) = (std::ptr::null_mut(), 0i32);
+                        two_d.Lock2D(&mut scanline0, &mut pitch)?;
+                        let rows = height.saturating_sub(1) as isize;
+                        let image = if scanline0.is_null() || pitch == 0 || height == 0 {
+                            None
+                        } else {
+                            // Bottom-up (a negative pitch): the slice starts at the last row in memory.
+                            let start = if pitch < 0 { scanline0.offset(pitch as isize * rows) } else { scanline0 };
+                            let len = pitch.unsigned_abs() as usize * height;
+                            to_image(std::slice::from_raw_parts(start, len), width, height, pitch)
+                        };
+                        two_d.Unlock2D()?;
+                        image
+                    } else {
+                        let (mut data, mut len) = (std::ptr::null_mut(), 0u32);
+                        buffer.Lock(&mut data, None, Some(&mut len))?;
+                        let pitch = row_pitch(len as usize, width, height, stride);
+                        let image = if data.is_null() { None } else { to_image(std::slice::from_raw_parts(data, len as usize), width, height, pitch) };
+                        buffer.Unlock()?;
+                        image
+                    };
                     if let Some(image) = image {
                         frames += 1;
                         if tx.send(Frame { image, at: offset + at }).is_err() {

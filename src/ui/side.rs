@@ -181,11 +181,13 @@ impl TruffleApp {
     }
 
     /// "Interface size" on the screen the window is on (each screen keeps its own; AUTO goes back
-    /// to the one picked for the screen), and "Grow with the window".
+    /// to the one picked for the screen), and "Grow with the window". While the slider is held
+    /// only it and its note show the new size; the size applies when the button is released, so
+    /// the whole window doesn't change size under the mouse on every frame.
     pub(super) fn size_row(&mut self, ui: &mut Ui) {
         let p = self.palette;
         let screen = self.screen_zoom.screen.clone();
-        let size = screens::size_on(&self.prefs, screen.as_ref());
+        let size = self.screen_zoom.size(&self.prefs, false);
         let set = screens::is_set(&self.prefs, screen.as_ref());
         let pct = (self.scale_preview.unwrap_or(size) * 100.0).round();
         let auto = if set { "" } else { " (auto)" };
@@ -196,11 +198,15 @@ impl TruffleApp {
             let mut scale = self.scale_preview.unwrap_or(size);
             let r = kit::line_slider(ui, &p, &mut scale, 0.75..=2.5, 150.0, true);
             let scale = (scale * 20.0).round() / 20.0;
-            if r.dragged() {
+            // Held: from the press (a click too, before egui calls it a drag) until the release.
+            let held = ui.input(|i| i.pointer.primary_down()) && (r.is_pointer_button_down_on() || r.dragged());
+            if held {
                 self.scale_preview = Some(scale);
-            } else if r.drag_stopped() || r.changed() {
-                self.scale_preview = None;
-                new_size = Some(Some(scale));
+            } else if let Some(preview) = self.scale_preview.take()
+                && (preview - size).abs() > 0.001
+            {
+                // Let go where it was: an auto size stays auto.
+                new_size = Some(Some(preview));
             }
             if set && kit::button(ui, &p, "Auto", kit::Kind::Quiet).on_hover_text("The size picked for this screen").clicked() {
                 self.scale_preview = None;

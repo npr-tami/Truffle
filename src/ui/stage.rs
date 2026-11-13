@@ -668,7 +668,8 @@ fn card_button(ui: &Ui, rect: Rect, id: Id, icon: &str, icon_px: f32, color: Col
 /// its response and, while held, where (0-1).
 fn card_line(ui: &Ui, bar: Rect, id: Id, value: f32, enabled: bool, fill: Color32, k: f32) -> (Response, Option<f32>) {
     let resp = ui.interact(bar.expand2(vec2(0.0, 8.0 * k)), id, if enabled { Sense::click_and_drag() } else { Sense::hover() });
-    let held = enabled && (resp.is_pointer_button_down_on() || resp.dragged());
+    // Only the left button moves it: the right one opens the box to type a volume in.
+    let held = enabled && ui.input(|i| i.pointer.primary_down()) && (resp.is_pointer_button_down_on() || resp.dragged_by(egui::PointerButton::Primary));
     let at = if held { resp.interact_pointer_pos().map(|p| ((p.x - bar.left()) / bar.width().max(1.0)).clamp(0.0, 1.0)) } else { None };
     let v = at.unwrap_or(value).clamp(0.0, 1.0);
     let round = CornerRadius::same((2.0 * k).round() as u8);
@@ -977,6 +978,8 @@ impl TruffleApp {
     #[allow(clippy::too_many_arguments)]
     fn stage_lyrics(&mut self, ui: &mut Ui, painter: &egui::Painter, frame: Rect, k: f32, now: f64, lines: &Arc<Vec<LyricLine>>, synced: bool, jump: bool) -> bool {
         let column = self.stage.lyrics.value(now);
+        // The blur Settings asks for, of the design's (Appearance > Motion > Lyrics blur).
+        let blur_strength = f32::from(self.prefs.now_playing_blur.min(100)) / 100.0;
         let (left, right) = lyrics_column(frame);
         let width = right - left;
         let pos = self.seek_preview.map_or(self.playback.current_position_ms(), |v| v as u32);
@@ -1043,7 +1046,7 @@ impl TruffleApp {
             if (s - 1.0).abs() < 1e-4 {
                 at = at.round_to_pixels(ppp);
             }
-            let sigma = m.blur.value(now) * k;
+            let sigma = m.blur.value(now) * k * blur_strength;
             if blur::broken() {
                 // Without the GPU's help egui draws it, laid out at the size it has now.
                 let size = m.size.value(now) * k;
@@ -1249,6 +1252,13 @@ impl TruffleApp {
             self.volume_dirty_at = Some(super::player::due_now());
         }
         let (resp, held) = card_line(&ui, parts.vol_bar, Id::new("stage-volume"), self.volume_ui / 100.0, true, TEXT, k);
+        // Right-click the speaker or the line: a box to type the volume in, as in the player bar.
+        let area = parts.vol_icon.expand(4.0 * k).union(resp.rect);
+        let right_click = ui.input(|i| i.pointer.secondary_clicked().then(|| i.pointer.interact_pos()).flatten());
+        if right_click.is_some_and(|pt| area.contains(pt)) {
+            self.volume_box = Some(String::new());
+        }
+        self.volume_box_ui(&ui, area);
         if let Some(v) = held {
             self.volume_ui = (v * 100.0).round();
             self.volume_before_mute = None;

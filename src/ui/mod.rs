@@ -788,6 +788,7 @@ impl TruffleApp {
             s.more_columns = p.more_columns;
             s.fill_cards = p.fill_cards;
             s.wide_screens = p.wide_screens;
+            s.now_playing_blur = p.now_playing_blur;
         }
         self.settings_dirty_at = Some(Instant::now());
     }

@@ -8,7 +8,7 @@ use egui::{Align2, Color32, CornerRadius, CursorIcon, Id, Rect, Sense, Stroke, S
 
 use super::fin;
 use super::motion;
-use super::sidebar::{OnTop, Raised};
+use super::sidebar::lifted;
 use super::svgicon;
 use super::theme::{bold, heavy, medium, regular};
 use super::tracks::{liked_color, one_line};
@@ -48,6 +48,8 @@ struct Covers {
 /// The covers shrink for the page to fit the window down to 70 % of their size; a page that needs
 /// more than that scrolls, as there is more to see.
 const FIT_LEAST: f32 = 0.7;
+/// Both rows of square covers use the same spacing.
+const COVER_GAP: f32 = 18.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 enum Chip {
@@ -298,24 +300,14 @@ impl TruffleApp {
         }
     }
 
-    /// A list's cover as a sleeve with its record peeking out (Liked Songs, any playlist, a mix),
-    /// like the sidebar's; an album's or artist's as a plain cover.
-    fn home_sleeve(&mut self, ui: &Ui, cover: Rect, item: &Item, hovered: bool) -> Option<Raised> {
-        if !matches!(item.source, Source::Playlist(_) | Source::LikedSongs | Source::Mix(_)) {
-            self.home_cover(ui, cover, item, 4);
-            ui.painter().rect_stroke(cover, CornerRadius::same(4), Stroke::new(1.0, Color32::from_white_alpha(15)), StrokeKind::Inside);
-            return None;
-        }
-        let playing = self.playback.track.is_some() && self.playback.source.as_ref() == Some(&item.source);
-        let sleeve = super::sidebar::Sleeve {
-            source: item.source.clone(),
-            name: item.name.clone(),
-            image: item.image.clone(),
-            count: item.songs,
-            uri: None,
-            editable: false,
-        };
-        self.paint_sleeve(ui, cover, &sleeve, playing, hovered, 0.20)
+    /// A plain cover that lifts toward the user on hover, like the sidebar's sleeves.
+    fn home_mix_cover(&mut self, ui: &Ui, cover: Rect, item: &Item, hovered: bool) {
+        let id = Id::new(("home-cover-lift", &item.source));
+        let rise = motion::toward(ui.ctx(), id, hovered && motion::moves(), motion::TAB);
+        let (cover, shadow) = lifted(cover, rise);
+        ui.painter().add(shadow.as_shape(cover, CornerRadius::same(4)));
+        self.home_cover(ui, cover, item, 4);
+        ui.painter().rect_stroke(cover, CornerRadius::same(4), Stroke::new(1.0, Color32::from_white_alpha(15)), StrokeKind::Inside);
     }
 
     /// A section heading (`.hdr`): 13.5 semibold, 26 under what came before, things on its right.
@@ -544,13 +536,8 @@ impl TruffleApp {
         if fin::link(ui, head, Id::new("foryou-all"), if self.home.all_mixes { "Show less" } else { "Show all" }) {
             self.home.all_mixes = !self.home.all_mixes;
         }
-        // Each card is as wide as its sleeve and the record peeking out of it; they grow a little
-        // so the row ends at the right edge.
-        let gap = 14.0;
-        // Shown all, they take the rows they need at their size; one row is drawn at `scale`.
-        let scale = if self.home.all_mixes { 1.0 } else { covers.scale };
-        let (fit, card_w, designed_w) = fitted_row(cw, (card_min(cw, page_w) * 1.24).round(), gap, scale);
-        let size = (card_w / 1.24).round();
+        // Square covers share their columns with New releases, including when Show all is open.
+        let (fit, size, designed) = cover_row(cw, page_w, covers.scale);
         if !self.home.all_mixes {
             mixes.truncate(fit);
         }
@@ -558,31 +545,28 @@ impl TruffleApp {
             ui.painter().text(pos2(left, top + 6.0), Align2::LEFT_TOP, "No mixes for this mood", regular(12.0), p.text_weak);
             return top + 30.0;
         }
-        if !self.home.all_mixes {
-            covers.designed += (designed_w / 1.24).round();
-            covers.drawn += size;
-        }
+        let shown = mixes.len().div_ceil(fit) as f32;
+        covers.designed += designed * shown;
+        covers.drawn += size * shown;
         let mut bottom = top;
         let row_h = size + 7.0 + 15.0 + 3.0 + 14.0 + 18.0;
-        let mut on_top = OnTop::default();
         for (i, item) in mixes.iter().enumerate() {
-            let at = pos2(left + (i % fit) as f32 * (card_w + gap), top + (i / fit) as f32 * row_h);
+            let at = pos2(left + (i % fit) as f32 * (size + COVER_GAP), top + (i / fit) as f32 * row_h);
             let rect = Rect::from_min_size(at, vec2(size, size));
-            let card = Rect::from_min_max(rect.min, pos2(rect.left() + card_w, rect.bottom() + 7.0 + 15.0 + 3.0 + 14.0));
+            let card = Rect::from_min_max(rect.min, pos2(rect.right(), rect.bottom() + 7.0 + 15.0 + 3.0 + 14.0));
             let resp = ui.interact(card, Id::new(("mix", &item.source)), Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
-            on_top.add(self.home_sleeve(ui, rect, item, resp.hovered()));
-            let name = one_line(ui, &item.name, medium(12.0), if resp.hovered() { p.text_strong } else { p.text }, card_w, false);
+            self.home_mix_cover(ui, rect, item, resp.hovered());
+            let name = one_line(ui, &item.name, medium(12.0), if resp.hovered() { p.text_strong } else { p.text }, size, false);
             let nh = name.size().y;
             ui.painter().galley(pos2(rect.left(), rect.bottom() + 7.0), name, p.text);
             let sub = item.songs.map(|n| format!("{} songs", fmt_thousands(n as usize))).unwrap_or_default();
-            let sg = one_line(ui, &sub, regular(11.0), p.text_weak, card_w, false);
+            let sg = one_line(ui, &sub, regular(11.0), p.text_weak, size, false);
             ui.painter().galley(pos2(rect.left(), rect.bottom() + 7.0 + nh + 3.0), sg, p.text_weak);
             if resp.clicked() {
                 self.open_source(item.source.clone(), false);
             }
             bottom = card.bottom();
         }
-        on_top.lift(ui.ctx());
         bottom
     }
 }
@@ -601,9 +585,8 @@ impl TruffleApp {
         if fin::link(ui, head, Id::new("releases-all"), "Show all") {
             self.show_collection(MiddleTab::Albums);
         }
-        let gap = 18.0;
         // The covers grow a little so the row ends at the right edge; drawn at `scale`, more fit.
-        let (fit, size, designed) = fitted_row(cw, card_min(cw, page_w), gap, covers.scale);
+        let (fit, size, designed) = cover_row(cw, page_w, covers.scale);
         let shown = releases.len().min(fit * rows).div_ceil(fit) as f32;
         covers.designed += designed * shown;
         covers.drawn += size * shown;
@@ -611,7 +594,7 @@ impl TruffleApp {
         let mut bottom = top;
         let mut open = None;
         for (i, r) in releases.iter().take(fit * rows).enumerate() {
-            let rect = Rect::from_min_size(pos2(left + (i % fit) as f32 * (size + gap), top + (i / fit) as f32 * row_h), vec2(size, size));
+            let rect = Rect::from_min_size(pos2(left + (i % fit) as f32 * (size + COVER_GAP), top + (i / fit) as f32 * row_h), vec2(size, size));
             let card = Rect::from_min_max(rect.min, pos2(rect.right(), rect.bottom() + 7.0 + 15.0 + 3.0 + 14.0));
             let resp = ui.interact(card, Id::new(("release-home", &r.uri)), Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
             if !self.images.paint(ui, r.image.as_deref(), rect, 4, p.widget_bg) {
@@ -648,6 +631,11 @@ impl TruffleApp {
         }
         bottom
     }
+}
+
+/// The shared columns for For you and New releases: count, cover size and size before fitting.
+fn cover_row(cw: f32, page_w: f32, scale: f32) -> (usize, f32, f32) {
+    fitted_row(cw, card_min(cw, page_w), COVER_GAP, scale)
 }
 
 /// [`wide::row_fit`] with the cards at most `scale` of the width it gives them, as many more as that
@@ -835,7 +823,7 @@ fn flow_slot(t: f32, sizes: &[f32], alphas: &[f32], slot_x: &[f32]) -> (f32, f32
 
 #[cfg(test)]
 mod flow_tests {
-    use super::{Covers, FLOW_GAP, card_min, fit_shrink, fitted_row, flow_sizes, flow_slot, tile_cols};
+    use super::{COVER_GAP, Covers, FLOW_GAP, card_min, cover_row, fit_shrink, fitted_row, flow_sizes, flow_slot, tile_cols};
     use crate::ui::wide;
 
     /// How wide a row of covers is, with the gaps.
@@ -858,21 +846,24 @@ mod flow_tests {
     }
 
     #[test]
-    fn for_you_and_new_releases_grow_like_the_mockups() {
+    fn for_you_and_new_releases_share_square_cover_columns() {
         // As before on normal pages and in narrow columns.
         for (cw, min) in [(0.0, 100.0), (300.0, 100.0), (559.0, 100.0), (560.0, 104.0), (739.0, 104.0), (740.0, 136.0), (1452.0, 136.0), (1500.0, 136.0)] {
             assert_eq!(card_min(cw, cw), min, "{cw}");
         }
-        // (column, page, New releases' covers, For you's cards): Centred's 1800 has 8 covers of
-        // about 209 (mockup A: 8 of 204), For you 7 as its cards carry the record too; Split's right
-        // column on a 34" window as big (mockup C: 7 of 210); Fill there and on a 5120 window.
-        for (cw, page, releases, mixes) in [(1800.0, 1800.0, 8, 7), (1644.0, 2752.0, 7, 6), (2752.0, 2752.0, 13, 11), (4432.0, 4432.0, 21, 17)] {
+        // Both rows use these columns in Centred, Split and Fill, with room only for the cover.
+        for (cw, page, columns) in [(1800.0, 1800.0, 8), (1644.0, 2752.0, 7), (2752.0, 2752.0, 13), (4432.0, 4432.0, 21)] {
             let min = card_min(cw, page);
             assert_eq!(min, 190.0, "{cw} in {page}");
-            let (n, size) = wide::row_fit(cw, min, 18.0);
-            assert!(n == releases && size >= 190.0, "{n} of {size} in {cw}");
-            let (n, card_w) = wide::row_fit(cw, (min * 1.24).round(), 14.0);
-            assert!(n == mixes && (card_w / 1.24).round() >= 190.0, "{n} of {card_w} in {cw}");
+            let (n, size, _) = cover_row(cw, page, 1.0);
+            assert!(n == columns && size >= 190.0, "{n} of {size} in {cw}");
+        }
+        // A short window, like the reported one: shrinking keeps the same spacing to both edges.
+        for width in [368.0, 715.0, 1200.0, 1800.0] {
+            for scale in [0.7, 0.85, 1.0] {
+                let (n, size, _) = cover_row(width, width, scale);
+                assert!((n as f32 * size + (n - 1) as f32 * COVER_GAP - width).abs() < 0.01);
+            }
         }
         assert_eq!(wide::row_fit(1800.0, card_min(1800.0, 1800.0), 18.0).1, 209.25);
         // Between 1500 and 1800 it grows a little at a time.

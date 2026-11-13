@@ -196,7 +196,8 @@ fn line_with(ui: &Ui, p: &Palette, rect: Rect, id: Id, value: f32, enabled: bool
     let bar = Rect::from_center_size(rect.center(), vec2(rect.width(), 3.0));
     let painter = ui.painter();
     painter.rect_filled(bar, CornerRadius::same(2), p.border);
-    let mut held = (resp.is_pointer_button_down_on() || resp.dragged()) && enabled;
+    // Only the left button moves it (the right one is for menus, such as the volume's box).
+    let mut held = enabled && ui.input(|i| i.pointer.primary_down()) && (resp.is_pointer_button_down_on() || resp.dragged_by(egui::PointerButton::Primary));
     let mut dx = 0.0;
     if grab_knob {
         let key = id.with("grab");

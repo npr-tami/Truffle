@@ -490,6 +490,9 @@ pub struct Settings {
     pub dynamic_accent: bool,
     /// Denser rows and smaller paddings.
     pub compact: bool,
+    /// How strongly the Now playing view blurs the lyric lines around the sung one, in percent of
+    /// the design's blur (0 = sharp).
+    pub now_playing_blur: u8,
     /// The interface size set on each screen (Ctrl + / Ctrl −, or Settings), by the screen's key
     /// (`ui/screens.rs`). A screen without one gets a size from its height.
     pub screen_sizes: std::collections::BTreeMap<String, f32>,
@@ -605,6 +608,7 @@ impl Default for Settings {
             lastfm_api_secret: None,
             dynamic_accent: true,
             compact: false,
+            now_playing_blur: 50,
             screen_sizes: std::collections::BTreeMap::new(),
             grow_with_window: false,
             big_screen_tips: std::collections::BTreeSet::new(),

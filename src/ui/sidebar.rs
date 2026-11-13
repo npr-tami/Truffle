@@ -118,7 +118,7 @@ const LIFT: f32 = 0.04;
 /// A sleeve's cover `lift` of the way (0-1) up toward the user: the rect it is drawn in (a little
 /// bigger around its centre) and its shadow (at rest it falls right onto the record; lifted it falls
 /// below too, wider and darker).
-fn lifted(cover: Rect, lift: f32) -> (Rect, Shadow) {
+pub(super) fn lifted(cover: Rect, lift: f32) -> (Rect, Shadow) {
     let rect = cover.scale_from_center(1.0 + LIFT * lift);
     let shadow = Shadow {
         offset: [3, (6.0 * lift).round() as i8],

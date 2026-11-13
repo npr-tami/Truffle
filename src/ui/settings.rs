@@ -158,6 +158,7 @@ enum Item {
     Spin,
     Motion,
     PageAnim,
+    LyricsBlur,
     SongSize,
     WideScreens,
     MoreColumns,
@@ -210,6 +211,7 @@ impl Item {
             Item::Spin => "spin the record turntable animation",
             Item::Motion => "motion animation speed snappy normal relaxed fast slow",
             Item::PageAnim => "page animation switch transition fade crossfade rise top first",
+            Item::LyricsBlur => "now playing view lyrics blur blurry sharp soft lines window",
             Item::SongSize => "song size bigger rows songs list text medium big",
             Item::WideScreens => "wide screen ultrawide layout width centred centered fill split columns",
             Item::MoreColumns => "artist date added columns list",
@@ -263,7 +265,7 @@ const CARDS: &[Card] = &[
     Card { page: Page::Appearance, title: Some("Colours"), items: &[Item::Theme, Item::MatchAccent, Item::Accent, Item::AppIcon] },
     Card { page: Page::Appearance, title: Some("Size"), items: &[Item::Size, Item::SongSize, Item::Compact] },
     Card { page: Page::Appearance, title: Some("Pages"), items: &[Item::WideScreens, Item::MoreColumns, Item::FillCards, Item::Banners] },
-    Card { page: Page::Appearance, title: Some("Motion"), items: &[Item::Motion, Item::PageAnim, Item::Spin] },
+    Card { page: Page::Appearance, title: Some("Motion"), items: &[Item::Motion, Item::PageAnim, Item::Spin, Item::LyricsBlur] },
     Card { page: Page::Appearance, title: Some("Wallpaper"), items: &[Item::Wallpaper] },
     Card { page: Page::Appearance, title: Some("Custom colours"), items: &[Item::Colours] },
     Card { page: Page::Accounts, title: Some("Spotify"), items: &[Item::Spotify] },
@@ -822,6 +824,7 @@ impl TruffleApp {
                 }
             }
             Item::Motion => self.motion_row(ui),
+            Item::LyricsBlur => self.lyrics_blur_row(ui),
             Item::PageAnim => self.page_animation_row(ui),
             Item::SongSize => self.song_size_row(ui),
             Item::WideScreens => self.wide_screens_row(ui),
@@ -916,6 +919,24 @@ impl TruffleApp {
         });
         if bitrate != self.prefs.bitrate {
             self.prefs.bitrate = bitrate;
+            self.prefs_changed();
+        }
+    }
+
+    /// How blurred the Now playing view's lyric lines around the sung one are (0-100 %).
+    fn lyrics_blur_row(&mut self, ui: &mut Ui) {
+        let p = self.palette;
+        let mut pct = self.prefs.now_playing_blur.min(100);
+        kit::row(ui, &p, "Lyrics blur", Some("In the Now playing view"), false, true, 220.0, |ui| {
+            let shown = if pct == 0 { "Off".to_owned() } else { format!("{pct}%") };
+            ui.add_sized(vec2(36.0, 16.0), egui::Label::new(RichText::new(shown).font(regular(12.0)).color(p.text_weak)));
+            let mut v = f32::from(pct);
+            if kit::line_slider(ui, &p, &mut v, 0.0..=100.0, 170.0, true).changed() {
+                pct = ((v / 5.0).round() * 5.0) as u8;
+            }
+        });
+        if pct != self.prefs.now_playing_blur {
+            self.prefs.now_playing_blur = pct;
             self.prefs_changed();
         }
     }
@@ -1333,7 +1354,7 @@ mod tests {
                 seen.push(item);
             }
         }
-        assert_eq!(seen.len(), 46);
+        assert_eq!(seen.len(), 47);
     }
 
     #[test]
