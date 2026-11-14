@@ -160,19 +160,6 @@ pub fn main_window_handle() -> Option<isize> {
     }
 }
 
-/// A window of this program, made by winit on this thread, with exactly this title.
-pub fn find_window(title: &str) -> Option<isize> {
-    #[cfg(windows)]
-    {
-        win32::find_window(title)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = title;
-        None
-    }
-}
-
 /// Makes a close sent to winit's hidden helper window close `main` (the main window) instead.
 ///
 /// winit gives the UI thread an invisible helper window and marks it visible (it needs paint
@@ -244,72 +231,6 @@ pub fn restore_placement(hwnd: isize, normal: ScreenRect) -> bool {
     {
         let _ = (hwnd, normal);
         false
-    }
-}
-
-/// Whether a window is minimised.
-pub fn is_minimized(hwnd: isize) -> bool {
-    #[cfg(windows)]
-    {
-        win32::is_minimized(hwnd)
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = hwnd;
-        false
-    }
-}
-
-/// Moves `hwnd` so the part of it you can see is `to`, its invisible borders outside it. Doesn't
-/// activate it or change which window is in front.
-pub fn place_visible(hwnd: isize, to: ScreenRect) {
-    #[cfg(windows)]
-    {
-        win32::place_visible(hwnd, to);
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (hwnd, to);
-    }
-}
-
-/// Makes `owner` the owner of `hwnd`, as Glint's Settings window is: it stays in front of the
-/// owner, is minimised with it and has no taskbar button.
-pub fn set_owner(hwnd: isize, owner: isize) {
-    #[cfg(windows)]
-    {
-        win32::set_owner(hwnd, owner);
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (hwnd, owner);
-    }
-}
-
-/// Shows a window made hidden, still cloaked (Windows counts it as shown, so it can be drawn, but
-/// nothing is seen yet): without Windows' opening animation, and without taking the focus when
-/// `activate` is false. [`uncloak`] it once it has drawn itself: a window shown straight away
-/// shows white until its first picture.
-pub fn show_cloaked(hwnd: isize, activate: bool) {
-    #[cfg(windows)]
-    {
-        win32::show_cloaked(hwnd, activate);
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = (hwnd, activate);
-    }
-}
-
-/// Lets a window shown with [`show_cloaked`] be seen.
-pub fn uncloak(hwnd: isize) {
-    #[cfg(windows)]
-    {
-        win32::uncloak(hwnd);
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = hwnd;
     }
 }
 
@@ -421,14 +342,6 @@ mod win32 {
     const MDT_EFFECTIVE_DPI: i32 = 0;
     const MONITOR_DEFAULTTONEAREST: u32 = 2;
     const DWMWA_EXTENDED_FRAME_BOUNDS: u32 = 9;
-    const SWP_NOZORDER: u32 = 0x0004;
-    const SWP_NOACTIVATE: u32 = 0x0010;
-    const SWP_NOOWNERZORDER: u32 = 0x0200;
-    const GWLP_HWNDPARENT: i32 = -8;
-    const DWMWA_TRANSITIONS_FORCEDISABLED: u32 = 3;
-    const DWMWA_CLOAK: u32 = 13;
-    const SW_SHOW: i32 = 5;
-    const SW_SHOWNOACTIVATE: i32 = 4;
     /// winit's default window class name on Windows.
     const WINIT_CLASS: &str = "Window Class";
     /// The class of winit's hidden helper window (one per UI thread).
@@ -468,20 +381,12 @@ mod win32 {
         fn GetWindowRect(hwnd: Hwnd, rect: *mut Rect) -> i32;
         fn GetClientRect(hwnd: Hwnd, rect: *mut Rect) -> i32;
         fn GetDpiForWindow(hwnd: Hwnd) -> u32;
-        fn SetWindowPos(hwnd: Hwnd, insert_after: Hwnd, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
-        fn IsIconic(hwnd: Hwnd) -> i32;
-        fn ShowWindow(hwnd: Hwnd, cmd: i32) -> i32;
         fn PostMessageW(hwnd: Hwnd, msg: u32, wparam: usize, lparam: isize) -> i32;
-        #[cfg(target_pointer_width = "64")]
-        fn SetWindowLongPtrW(hwnd: Hwnd, index: i32, value: isize) -> isize;
-        #[cfg(not(target_pointer_width = "64"))]
-        fn SetWindowLongW(hwnd: Hwnd, index: i32, value: i32) -> i32;
     }
 
     #[link(name = "dwmapi")]
     unsafe extern "system" {
         fn DwmGetWindowAttribute(hwnd: Hwnd, attribute: u32, value: *mut c_void, size: u32) -> i32;
-        fn DwmSetWindowAttribute(hwnd: Hwnd, attribute: u32, value: *const c_void, size: u32) -> i32;
     }
 
     #[link(name = "shcore")]
@@ -562,10 +467,6 @@ mod win32 {
             EnumThreadWindows(GetCurrentThreadId(), Some(collect), &mut found as *mut Found as isize);
         }
         found.windows
-    }
-
-    pub fn find_window(title: &str) -> Option<isize> {
-        own_windows(WINIT_CLASS).into_iter().find(|(_, t)| t == title).map(|(h, _)| h)
     }
 
     pub fn forward_helper_close(main: isize) -> bool {
@@ -791,60 +692,7 @@ mod win32 {
         }
     }
 
-    pub fn is_minimized(hwnd: isize) -> bool {
-        // SAFETY: a plain query; a stale handle answers no.
-        unsafe { IsIconic(hwnd as Hwnd) != 0 }
-    }
 
-    pub fn place_visible(hwnd: isize, to: ScreenRect) {
-        let (Some(whole), Some(seen)) = (window_rect(hwnd), visible_rect(hwnd)) else { return };
-        let (l, t) = (seen.left - whole.left, seen.top - whole.top);
-        let (r, b) = (whole.right - seen.right, whole.bottom - seen.bottom);
-        // SAFETY: moves a window of this thread; no pointers involved.
-        unsafe {
-            SetWindowPos(
-                hwnd as Hwnd,
-                std::ptr::null_mut(),
-                to.left - l,
-                to.top - t,
-                to.width() + l + r,
-                to.height() + t + b,
-                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
-            );
-        }
-    }
-
-    fn set_dwm_bool(hwnd: isize, attribute: u32, on: bool) {
-        let value = i32::from(on);
-        // SAFETY: a plain call on a window of this thread; `value` outlives the call that reads it.
-        unsafe {
-            DwmSetWindowAttribute(hwnd as Hwnd, attribute, (&value as *const i32).cast(), size_of::<i32>() as u32);
-        }
-    }
-
-    pub fn show_cloaked(hwnd: isize, activate: bool) {
-        set_dwm_bool(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, true);
-        set_dwm_bool(hwnd, DWMWA_CLOAK, true);
-        // SAFETY: shows a window of this thread.
-        unsafe {
-            ShowWindow(hwnd as Hwnd, if activate { SW_SHOW } else { SW_SHOWNOACTIVATE });
-        }
-    }
-
-    pub fn uncloak(hwnd: isize) {
-        set_dwm_bool(hwnd, DWMWA_CLOAK, false);
-    }
-
-    pub fn set_owner(hwnd: isize, owner: isize) {
-        // SAFETY: GWLP_HWNDPARENT on a top-level window sets its owner (the documented way to do
-        // it after creation); both are windows of this thread.
-        unsafe {
-            #[cfg(target_pointer_width = "64")]
-            SetWindowLongPtrW(hwnd as Hwnd, GWLP_HWNDPARENT, owner);
-            #[cfg(not(target_pointer_width = "64"))]
-            SetWindowLongW(hwnd as Hwnd, GWLP_HWNDPARENT, owner as i32);
-        }
-    }
 }
 
 #[cfg(test)]
@@ -1023,10 +871,7 @@ mod tests {
     #[test]
     fn placing_is_safe_without_a_window() {
         // Unknown handles (here: none) are simply not placed or measured.
-        let found = std::thread::spawn(|| find_window("no such window 7c1e")).join().unwrap();
-        assert_eq!(found, None);
         assert_eq!(visible_rect(0), None);
-        assert!(!is_minimized(0));
     }
 
     #[test]

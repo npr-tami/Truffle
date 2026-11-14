@@ -2,6 +2,15 @@
 
 The newest version is at the top.
 
+## 0.1.2
+
+- Settings opens as a page inside Truffle instead of a separate window (Esc or Back closes it)
+- Truffle can update itself: once a day it looks for a new version and asks first (Update now, Later, Skip this version, or stop checking)
+- Settings > About > Updates: Check now and the automatic check switch
+- Updating keeps the music playing while it downloads, then restarts on the same song
+- Truffle saves your place as soon as the song changes, so it comes back on the right song even after a crash
+- Home: New releases covers lift on hover like For you's, and Show all opens every new release
+
 ## 0.1.1 · 13/11/2026
 
 - The automatic interface size fits the window too, so a small window is no longer drawn too big

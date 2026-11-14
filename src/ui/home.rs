@@ -31,6 +31,8 @@ pub(super) struct HomeState {
     mood: Option<&'static str>,
     /// For you shows every mix (else one row).
     all_mixes: bool,
+    /// New releases shows every release (else its one or two rows).
+    all_releases: bool,
     /// How much smaller the covers are drawn for the page to end in the window (0: as designed), in
     /// the page's column and, side by side, the right one. See [`fit_shrink`].
     shrink: [f32; 2],
@@ -300,14 +302,9 @@ impl TruffleApp {
         }
     }
 
-    /// A plain cover that lifts toward the user on hover, like the sidebar's sleeves.
+    /// A mix's cover, lifting toward the user on hover ([`lifting_cover`]).
     fn home_mix_cover(&mut self, ui: &Ui, cover: Rect, item: &Item, hovered: bool) {
-        let id = Id::new(("home-cover-lift", &item.source));
-        let rise = motion::toward(ui.ctx(), id, hovered && motion::moves(), motion::TAB);
-        let (cover, shadow) = lifted(cover, rise);
-        ui.painter().add(shadow.as_shape(cover, CornerRadius::same(4)));
-        self.home_cover(ui, cover, item, 4);
-        ui.painter().rect_stroke(cover, CornerRadius::same(4), Stroke::new(1.0, Color32::from_white_alpha(15)), StrokeKind::Inside);
+        lifting_cover(ui, cover, Id::new(("home-cover-lift", &item.source)), hovered, |cover| self.home_cover(ui, cover, item, 4));
     }
 
     /// A section heading (`.hdr`): 13.5 semibold, 26 under what came before, things on its right.
@@ -582,29 +579,33 @@ impl TruffleApp {
         }
         let Some(releases) = self.new_releases.clone().filter(|r| !r.is_empty()) else { return y };
         let (top, head) = self.home_section(ui, left, cw, y, "New releases");
-        if fin::link(ui, head, Id::new("releases-all"), "Show all") {
-            self.show_collection(MiddleTab::Albums);
+        // As For you's: every release here, or back to its rows.
+        if fin::link(ui, head, Id::new("releases-all"), if self.home.all_releases { "Show less" } else { "Show all" }) {
+            self.home.all_releases = !self.home.all_releases;
         }
         // The covers grow a little so the row ends at the right edge; drawn at `scale`, more fit.
         let (fit, size, designed) = cover_row(cw, page_w, covers.scale);
-        let shown = releases.len().min(fit * rows).div_ceil(fit) as f32;
+        let count = releases_shown(releases.len(), fit, rows, self.home.all_releases);
+        let shown = count.div_ceil(fit) as f32;
         covers.designed += designed * shown;
         covers.drawn += size * shown;
         let row_h = size + 7.0 + 15.0 + 3.0 + 14.0 + 18.0;
         let mut bottom = top;
         let mut open = None;
-        for (i, r) in releases.iter().take(fit * rows).enumerate() {
+        for (i, r) in releases.iter().take(count).enumerate() {
             let rect = Rect::from_min_size(pos2(left + (i % fit) as f32 * (size + COVER_GAP), top + (i / fit) as f32 * row_h), vec2(size, size));
             let card = Rect::from_min_max(rect.min, pos2(rect.right(), rect.bottom() + 7.0 + 15.0 + 3.0 + 14.0));
             let resp = ui.interact(card, Id::new(("release-home", &r.uri)), Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
-            if !self.images.paint(ui, r.image.as_deref(), rect, 4, p.widget_bg) {
-                svgicon::paint(ui.painter(), rect.shrink(size * 0.32), "album", p.text_weak, svgicon::STROKE);
-            }
-            ui.painter().rect_stroke(rect, CornerRadius::same(4), Stroke::new(1.0, Color32::from_white_alpha(15)), StrokeKind::Inside);
+            // Lifts on hover as For you's covers do; the NEW tag rides along.
+            let lifted = lifting_cover(ui, rect, Id::new(("home-cover-lift", &r.uri)), resp.hovered(), |cover| {
+                if !self.images.paint(ui, r.image.as_deref(), cover, 4, p.widget_bg) {
+                    svgicon::paint(ui.painter(), cover.shrink(size * 0.32), "album", p.text_weak, svgicon::STROKE);
+                }
+            });
             if r.days_ago <= 14 {
                 // The chrome NEW tag, 6 in from the corner.
                 let g = fin::spaced(ui, "NEW", bold(9.0), Color32::from_rgb(21, 23, 29), 0.8);
-                let tag = Rect::from_min_size(rect.min + vec2(6.0, 6.0), g.size() + vec2(10.0, 4.0));
+                let tag = Rect::from_min_size(lifted.min + vec2(6.0, 6.0), g.size() + vec2(10.0, 4.0));
                 ui.painter().add(egui::Shadow { offset: [0, 1], blur: 3, spread: 0, color: Color32::from_black_alpha(150) }.as_shape(tag, CornerRadius::same(3)));
                 fin::vgradient(ui.painter(), Rect::from_min_max(tag.min, pos2(tag.right(), tag.center().y)), Color32::from_rgb(248, 250, 253), Color32::from_rgb(199, 206, 219));
                 fin::vgradient(ui.painter(), Rect::from_min_max(pos2(tag.left(), tag.center().y), tag.max), Color32::from_rgb(143, 152, 170), Color32::from_rgb(227, 232, 239));
@@ -631,6 +632,23 @@ impl TruffleApp {
         }
         bottom
     }
+}
+
+/// A Home cover that lifts toward the user on hover, like the sidebar's sleeves (For you and New
+/// releases both): its shadow, `paint` at the lifted place, then a faint line round it. Returns the
+/// lifted place.
+fn lifting_cover(ui: &Ui, cover: Rect, id: Id, hovered: bool, paint: impl FnOnce(Rect)) -> Rect {
+    let rise = motion::toward(ui.ctx(), id, hovered && motion::moves(), motion::TAB);
+    let (cover, shadow) = lifted(cover, rise);
+    ui.painter().add(shadow.as_shape(cover, CornerRadius::same(4)));
+    paint(cover);
+    ui.painter().rect_stroke(cover, CornerRadius::same(4), Stroke::new(1.0, Color32::from_white_alpha(15)), StrokeKind::Inside);
+    cover
+}
+
+/// How many releases New releases shows: its `rows` rows of `fit`, or every one after Show all.
+fn releases_shown(total: usize, fit: usize, rows: usize, all: bool) -> usize {
+    if all { total } else { total.min(fit * rows) }
 }
 
 /// The shared columns for For you and New releases: count, cover size and size before fitting.
@@ -823,7 +841,7 @@ fn flow_slot(t: f32, sizes: &[f32], alphas: &[f32], slot_x: &[f32]) -> (f32, f32
 
 #[cfg(test)]
 mod flow_tests {
-    use super::{COVER_GAP, Covers, FLOW_GAP, card_min, cover_row, fit_shrink, fitted_row, flow_sizes, flow_slot, tile_cols};
+    use super::{COVER_GAP, Covers, FLOW_GAP, card_min, cover_row, fit_shrink, fitted_row, flow_sizes, flow_slot, releases_shown, tile_cols};
     use crate::ui::wide;
 
     /// How wide a row of covers is, with the gaps.
@@ -843,6 +861,17 @@ mod flow_tests {
         let (_, s, a) = flow_slot(-0.5, &sizes, &alphas, &xs);
         assert!(s < 80.0 && a < 0.5);
         assert_eq!(flow_slot(3.0, &sizes, &alphas, &xs).2, 0.0);
+    }
+
+    #[test]
+    fn show_all_opens_every_new_release_in_place() {
+        // Its rows, as many as fit.
+        assert_eq!(releases_shown(20, 5, 1, false), 5);
+        assert_eq!(releases_shown(20, 5, 2, false), 10);
+        assert_eq!(releases_shown(3, 5, 2, false), 3);
+        // Show all: every one; Show less goes back.
+        assert_eq!(releases_shown(20, 5, 1, true), 20);
+        assert_eq!(releases_shown(0, 5, 1, true), 0);
     }
 
     #[test]

@@ -23,6 +23,7 @@ pub(super) enum Place {
     Search,
     Library,
     Playing,
+    Settings,
 }
 
 /// The pages behind and ahead, and the page shown last frame.
@@ -48,6 +49,7 @@ impl TruffleApp {
             MiddleTab::Search => Place::Search,
             MiddleTab::Library => Place::Library,
             MiddleTab::Playing => Place::Playing,
+            MiddleTab::Settings => Place::Settings,
             MiddleTab::Songs | MiddleTab::Blocked => match self.view.as_ref() {
                 Some(v) => Place::List(v.source.clone()),
                 None => Place::Home,
@@ -82,6 +84,7 @@ impl TruffleApp {
             Some(Place::People(_, true)) => "Followers",
             Some(Place::People(_, false)) => "Following",
             Some(Place::Playing) => "Playing",
+            Some(Place::Settings) => "Settings",
             Some(Place::List(_)) => "Back",
             Some(Place::Library) | None => "Library",
         }
@@ -137,6 +140,7 @@ impl TruffleApp {
             Place::Search => self.middle_tab = MiddleTab::Search,
             Place::Library => self.middle_tab = MiddleTab::Library,
             Place::Playing => self.middle_tab = MiddleTab::Playing,
+            Place::Settings => self.middle_tab = MiddleTab::Settings,
         }
     }
 }

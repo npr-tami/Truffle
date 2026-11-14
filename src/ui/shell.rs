@@ -242,7 +242,7 @@ impl TruffleApp {
 
     /// Quits for real, even with "Keep running in the background" on (the tray's Quit).
     pub(super) fn quit(&mut self, ctx: &egui::Context) {
-        // Settings' own window goes first (it is owned by the main window).
+        // Settings is let go of, so nothing of it is left half-done.
         if self.settings_open {
             self.close_settings();
         }

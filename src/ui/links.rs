@@ -533,7 +533,7 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 }
 
 /// How far this PC's clock runs ahead of UTC (its time zone and summer time), to the minute.
-fn local_offset_ms() -> i64 {
+pub(super) fn local_offset_ms() -> i64 {
     #[cfg(windows)]
     {
         #[repr(C)]

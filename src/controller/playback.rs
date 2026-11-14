@@ -934,7 +934,8 @@ impl Controller {
         true
     }
 
-    /// Rebuild the queue saved at the last shutdown and load its track paused (never autoplay).
+    /// Rebuild the queue saved at the last shutdown and load its track paused (playing only right
+    /// after an update made while music played).
     pub(super) fn apply_restore(&mut self, saved: &SavedQueue, tracks: Arc<Vec<TrackInfo>>) {
         self.saved_queue = None;
         let rules = self.rules();
@@ -949,7 +950,8 @@ impl Controller {
                     return;
                 }
                 self.queue = Some(queue);
-                self.load_current(false, position_ms, true);
+                // Paused, except right after an update made while music played.
+                self.load_current(crate::update::take_resume(), position_ms, true);
             }
             _ => log::info!("the saved queue no longer matches its playlist; starting fresh"),
         }

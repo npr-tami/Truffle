@@ -11,3 +11,12 @@
 secrets*
 Thumbs.db
 .DS_Store
+
+# Helper folders, backups and scratch files: never committed
+/scripts/
+*.bak
+*.bak-*
+*.prev
+*.prev-*
+*.tmp
+/dist/

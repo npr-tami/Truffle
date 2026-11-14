@@ -18,6 +18,7 @@ mod queue;
 mod session;
 mod text;
 mod ui;
+mod update;
 mod video;
 mod webapi;
 mod youtube;
@@ -81,6 +82,10 @@ fn main() -> Result<()> {
     let minimized_arg = std::env::args_os().skip(1).any(|a| a == MINIMIZED_ARG);
     if let Some(name) = play_arg(std::env::args().skip(1)) {
         ui::set_autoplay(name);
+    }
+    // A restart after an update, while music played: it plays on from the saved spot.
+    if std::env::args_os().skip(1).any(|a| a == update::RESUME_ARG) {
+        update::set_resume();
     }
 
     // One Truffle per Windows session. A second launch brings the running one to the front
@@ -177,6 +182,15 @@ fn main() -> Result<()> {
     }
     runtime.shutdown_timeout(SHUTDOWN_GRACE);
     drop(instance);
+
+    // An update was put in place: the new exe starts now that this one has saved and let go of
+    // the single-instance lock. On its own, so it outlives whatever started this Truffle.
+    if let Some((exe, resume)) = update::take_restart() {
+        match update::spawn_detached(&exe, resume) {
+            Ok(()) => log::info!("started the updated Truffle"),
+            Err(e) => log::warn!("could not start the updated Truffle: {e}"),
+        }
+    }
 
     result.map_err(|e| anyhow::anyhow!("UI error: {e}"))
 }

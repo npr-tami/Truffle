@@ -1,14 +1,12 @@
-//! Settings: a window of its own (never docked), opened over the middle of Truffle; it moves and
-//! resizes like any window and keeps its size. Laid out like Windows 11's Settings, in the Final
+//! Settings: a page of the middle column (`MiddleTab::Settings`), so Truffle's sidebar and player
+//! bar stay with it; Back, Esc, Ctrl+, and its × go back to the page before. Laid out like Windows 11's Settings, in the Final
 //! design's colours: the sections down the left with their icons, a search box above them that finds
 //! any setting in any section, and the chosen section's cards on the right. Every change applies at
 //! once. Sections: Audio (quality, loudness, crossfade, equalizer, cache), Shuffle, Appearance
 //! (`side.rs`), Accounts (Last.fm in `settings/lastfm.rs`; listen along only points to the
 //! Friends tab), System, Shortcuts, About (`settings/about.rs`).
 //!
-//! The window is an egui immediate viewport owned by the main window: it is in front of it, minimised
-//! with it (let go meanwhile, so nothing is drawn, and back with it), has no taskbar button, and goes
-//! when the main window hides, switches to the mini player or quits. Esc, Ctrl+W and Ctrl+, close it.
+//! It closes when the window hides or switches to the mini player.
 
 mod about;
 mod lastfm;
@@ -19,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use egui::{
     Align, Align2, Color32, CornerRadius, CursorIcon, Id, Key, Layout, Margin, Modifiers, Rect, RichText, ScrollArea,
-    Sense, Stroke, TextEdit, Ui, Vec2, ViewportBuilder, ViewportCommand, ViewportId, pos2, vec2,
+    Sense, Stroke, TextEdit, Ui, ViewportCommand, pos2, vec2,
 };
 
 use super::eq::{self, CUSTOM, FLAT};
@@ -29,8 +27,7 @@ use super::motion;
 use super::svgicon;
 use super::theme::{bold, heavy, medium, regular, text_field};
 use super::util::{looks_like_client_id, looks_like_discord_id, open_in_browser};
-use super::window::{self as win, ScreenRect};
-use super::TruffleApp;
+use super::{MiddleTab, TruffleApp};
 use crate::model::{Command, EQ_BANDS_HZ};
 use crate::text::{contains_folded, fold};
 use crate::webapi::REDIRECT_URI;
@@ -45,11 +42,6 @@ const DISCORD_ID_SETTLE: Duration = Duration::from_millis(700);
 const DISCORD_STATUS_REFRESH: Duration = Duration::from_secs(1);
 const EQ_SLIDER_LENGTH: f32 = 110.0;
 const EQ_COLUMN_WIDTH: f32 = 38.0;
-/// The Settings window's title (Alt+Tab); it is also found by it.
-const WINDOW_TITLE: &str = "Truffle settings";
-/// Its size the first time, and the smallest it can be made (points).
-const DEFAULT_SIZE: Vec2 = vec2(900.0, 640.0);
-const MIN_SIZE: Vec2 = vec2(520.0, 420.0);
 /// The head row (as tall as the main window's title bar), the section list, and the strip of
 /// icons it becomes below `NARROW_W`.
 const HEAD_H: f32 = 52.0;
@@ -59,36 +51,9 @@ const NARROW_W: f32 = 700.0;
 /// The cards are at most this wide, this far in from the section list.
 const CONTENT_MAX_W: f32 = 760.0;
 const CONTENT_PAD: f32 = 32.0;
-/// The window's own resize edges (it has no Windows frame).
+/// A window's own resize edges (the main window has no Windows frame).
 const EDGE: f32 = 5.0;
-/// A place Windows didn't give the window exactly is asked for this many more times, then left.
-const PLACE_RETRIES: u8 = 8;
-const SEARCH_ID: &str = "settings-search";
-
-/// The Settings window's viewport.
-fn window_viewport() -> ViewportId {
-    ViewportId::from_hash_of("truffle_settings_window")
-}
-
-/// Settings' window, while it is open.
-#[derive(Default)]
-pub(super) struct SettingsWindow {
-    /// The main window (its owner) and the Settings window, once found.
-    main: Option<isize>,
-    hwnd: Option<isize>,
-    /// Where it opens (over the middle of the main window), and how many times it was asked
-    /// again because it didn't take. After that it is the user's to move.
-    target: Option<ScreenRect>,
-    retries: u8,
-    /// Let go while the main window was minimised: made again once it is back, without taking
-    /// the focus from it.
-    parked: bool,
-    /// The window is made hidden, put in its place, shown cloaked and drawn there, and only then
-    /// uncloaked: it never flashes up somewhere else or white first.
-    shown: bool,
-    /// Drawn passes still to go before uncloaking (it needs a picture drawn while shown).
-    cloaked: Option<u8>,
-}
+pub(super) const SEARCH_ID: &str = "settings-search";
 
 /// The sections, in the order of the list.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -179,6 +144,7 @@ enum Item {
     StartMenu,
     Shortcuts,
     Version,
+    Updates,
     Plays,
     Account,
     Helpers,
@@ -235,6 +201,7 @@ impl Item {
             Item::StartMenu => "start menu shortcut",
             Item::Shortcuts => "keyboard shortcuts keys hotkeys",
             Item::Version => "about version build date truffle record now spinning",
+            Item::Updates => "updates update new version check now automatically later github download install",
             Item::Plays => "your truffle plays played stats statistics songs different most played top",
             Item::Account => "account premium free sound from spotify youtube",
             Item::Helpers => "youtube helpers yt-dlp node.js deno javascript found version",
@@ -277,6 +244,7 @@ const CARDS: &[Card] = &[
     Card { page: Page::System, title: Some("Desktop"), items: &[Item::MediaKeys, Item::MiniOnTop, Item::StartMenu] },
     Card { page: Page::Shortcuts, title: None, items: &[Item::Shortcuts] },
     Card { page: Page::About, title: None, items: &[Item::Version] },
+    Card { page: Page::About, title: Some("Updates"), items: &[Item::Updates] },
     Card { page: Page::About, title: Some("Your Truffle"), items: &[Item::Plays] },
     Card { page: Page::About, title: Some("This copy"), items: &[Item::Account, Item::Helpers, Item::Folder, Item::Details] },
     Card { page: Page::About, title: Some("Made with"), items: &[Item::Credits] },
@@ -403,19 +371,15 @@ pub(super) fn resize_edges(ctx: &egui::Context, salt: &str, corners_only: bool) 
 }
 
 impl TruffleApp {
-    /// Open Settings, with nothing left revealed, half-confirmed or searched from the last time.
-    /// Already open: its window comes to the front.
+    /// Opens Settings as the middle column's page, with nothing left revealed, half-confirmed or
+    /// searched from the last time. Already open: nothing changes.
     pub(super) fn open_settings(&mut self) {
-        if self.settings_open {
-            self.ctx.send_viewport_cmd_to(window_viewport(), ViewportCommand::Focus);
-            return;
+        if self.stage.open {
+            let ctx = self.ctx.clone();
+            self.close_stage(&ctx);
         }
-        self.settings_open = true;
-        self.settings_query.clear();
-        self.reset_settings_reveals();
-        // The play counts are added up again each time About shows.
-        self.about.stats_asked = false;
-        self.ctx.request_repaint_of(ViewportId::ROOT);
+        self.middle_tab = MiddleTab::Settings;
+        self.sync_settings_page();
     }
 
     /// Hide the Last.fm shared secret again and forget a pending "Discard…" confirmation.
@@ -424,22 +388,40 @@ impl TruffleApp {
         self.lastfm_confirm_discard = false;
     }
 
+    /// Leaves Settings for the page before it (Home when there is none).
     pub(super) fn close_settings(&mut self) {
-        // Closed from its own window (Esc, ×, Log out…): the main window gets the focus back, not
-        // whatever Windows would pick.
-        if self.settings_open && self.ctx.viewport_id() == window_viewport() {
-            self.ctx.send_viewport_cmd_to(ViewportId::ROOT, ViewportCommand::Focus);
+        if self.middle_tab == MiddleTab::Settings {
+            if self.can_go_back() {
+                self.go_back();
+            } else {
+                self.show_home();
+            }
         }
-        self.settings_open = false;
-        self.about.licences_open = false;
-        // Not shown again by itself the next time Settings opens (e.g. while sharing the screen).
+        self.sync_settings_page();
+    }
+
+    /// Keeps `settings_open` in step with the page shown (Back, Forward and the sidebar change it
+    /// too): coming to Settings starts it fresh, leaving it hides what was revealed.
+    pub(super) fn sync_settings_page(&mut self) {
+        let shown = self.middle_tab == MiddleTab::Settings;
+        if shown == self.settings_open {
+            return;
+        }
+        self.settings_open = shown;
         self.reset_settings_reveals();
-        // The main window's next pass takes the Settings window away.
-        self.ctx.request_repaint_of(ViewportId::ROOT);
+        if shown {
+            self.settings_query.clear();
+            // The play counts are added up again each time About shows.
+            self.about.stats_asked = false;
+        } else {
+            self.about.licences_open = false;
+        }
+        self.ctx.request_repaint();
     }
 
     /// Runs every frame: applies what was still waiting once Settings closes.
     pub(super) fn settings_logic(&mut self, ctx: &egui::Context) {
+        self.sync_settings_page();
         if self.settings_open {
             self.flush_equalizer(ctx, false);
             return;
@@ -450,140 +432,18 @@ impl TruffleApp {
         }
     }
 
-    /// Runs every drawn frame of the full window, after its contents and before `settings_logic`
-    /// (which then sends what was changed in the window this frame): shows Settings' window while
-    /// it is open, made over the middle of the main window.
-    pub(super) fn settings_window(&mut self, ctx: &egui::Context) {
-        if !self.settings_open {
-            // Not shown this pass: eframe closes the window.
-            self.settings_win = SettingsWindow::default();
-            return;
-        }
-        let mut builder = ViewportBuilder::default()
-            .with_title(WINDOW_TITLE)
-            .with_decorations(false)
-            .with_resizable(true)
-            .with_min_inner_size(MIN_SIZE)
-            .with_taskbar(false)
-            .with_visible(false);
-        // eframe lists the windows it has; not there yet, the window is made in this pass.
-        if !ctx.input(|i| i.raw.viewports.contains_key(&window_viewport())) {
-            let parked = self.settings_win.parked;
-            if parked {
-                // Back with the main window, which keeps the focus.
-                builder = builder.with_active(false);
-            }
-            let main = win::main_window_handle();
-            let size = self.settings_size();
-            let ppp = ctx.pixels_per_point();
-            let target = self.settings_target(ctx, main);
-            self.settings_win = SettingsWindow { main, parked, target, ..SettingsWindow::default() };
-            // Made at its place, so it doesn't jump. Only then: a position or size in the builder
-            // later would move it back each pass.
-            builder = match target {
-                Some(at) if ppp > 0.0 => builder
-                    .with_position(pos2(at.left as f32 / ppp, at.top as f32 / ppp))
-                    .with_inner_size(vec2(at.width() as f32 / ppp, at.height() as f32 / ppp)),
-                _ => builder.with_inner_size(size),
-            };
-        }
-        ctx.show_viewport_immediate(window_viewport(), builder, |ui, _| self.settings_window_ui(ui));
-        if !self.settings_open {
-            return;
-        }
-        // Looked up every pass (a few windows at most), so a window made again is never mistaken
-        // for the one before it.
-        let hwnd = win::find_window(WINDOW_TITLE);
-        if hwnd != self.settings_win.hwnd {
-            self.settings_win.hwnd = hwnd;
-            self.settings_win.retries = 0;
-            if let (Some(hwnd), Some(main)) = (hwnd, self.settings_win.main) {
-                win::set_owner(hwnd, main);
-            }
-        }
-        self.show_settings_window_once_placed(ctx);
-    }
-
-    /// The Settings window's size (points): as the user left it, else the default.
-    fn settings_size(&self) -> Vec2 {
-        self.prefs.settings_size.map_or(DEFAULT_SIZE, |[w, h]| vec2(w, h)).max(MIN_SIZE)
-    }
-
-    /// Where the Settings window opens: centred over the main window (screen pixels).
-    fn settings_target(&self, ctx: &egui::Context, main: Option<isize>) -> Option<ScreenRect> {
-        let m = main.filter(|m| !win::is_minimized(*m))?;
-        let main_rect = win::visible_rect(m)?;
-        let work = win::work_area(m).unwrap_or(main_rect);
-        let size = self.settings_size();
-        let ppp = ctx.pixels_per_point();
-        let px = |points: f32| (points * ppp).round() as i32;
-        Some(win::centred_over(main_rect, work, px(size.x), px(size.y)))
-    }
-
-    /// Shows the (hidden) Settings window once it sits in its place and has been drawn there.
-    fn show_settings_window_once_placed(&mut self, ctx: &egui::Context) {
-        // Not known when the window was made (the main window wasn't found yet): work it out now.
-        if self.settings_win.target.is_none() && !self.settings_win.shown {
-            let main = self.settings_win.main.or_else(win::main_window_handle);
-            self.settings_win.main = main;
-            self.settings_win.target = self.settings_target(ctx, main);
-        }
-        let w = &mut self.settings_win;
-        if let (Some(hwnd), Some(left)) = (w.hwnd, w.cloaked) {
-            if left == 0 {
-                w.cloaked = None;
-                win::uncloak(hwnd);
-            } else {
-                w.cloaked = Some(left - 1);
-                ctx.request_repaint_of(window_viewport());
-                ctx.request_repaint_of(ViewportId::ROOT);
-            }
-            return;
-        }
-        let Some(hwnd) = w.hwnd.filter(|_| !w.shown) else { return };
-        let in_place = w.target.is_none_or(|to| win::visible_rect(hwnd) == Some(to));
-        if in_place || w.retries >= PLACE_RETRIES {
-            log::info!("settings window shown at {:?} (wanted {:?})", win::visible_rect(hwnd), w.target);
-            w.shown = true;
-            // Back from a minimised main window: shown without taking its focus.
-            win::show_cloaked(hwnd, !w.parked);
-            w.parked = false;
-            w.cloaked = Some(2);
-        } else if let Some(to) = w.target {
-            w.retries += 1;
-            win::place_visible(hwnd, to);
-        }
-        ctx.request_repaint_of(window_viewport());
-        ctx.request_repaint_of(ViewportId::ROOT);
-    }
-
-    /// The main window is minimised, and Windows hid Settings' window with it. eframe still counts
-    /// that window as shown, so it would keep drawing both: it is let go instead, and made again
-    /// when the main window is back. Settings stays open meanwhile.
-    pub(super) fn park_settings_window(&mut self) {
-        if self.settings_open {
-            self.settings_win = SettingsWindow { parked: true, ..SettingsWindow::default() };
-        }
-    }
-
-    /// The Settings window's contents (its own pass, inside the main window's).
-    fn settings_window_ui(&mut self, ui: &mut Ui) {
-        let p = self.palette;
-        // Under everything, so the window never shows black, even in the pass it closes in.
-        ui.painter().rect_filled(ui.max_rect(), 0.0, p.main_bg);
+    /// The Settings page, in the middle column: its keys, then its contents.
+    pub(super) fn settings_page_view(&mut self, ui: &mut Ui) {
+        self.sync_settings_page();
         let searching = ui.memory(|m| m.has_focus(Id::new(SEARCH_ID)));
-        let (close, find, mut esc) = ui.input_mut(|i| {
-            let close = i.viewport().close_requested() || super::keys::take(i, Modifiers::CTRL, Key::W) || super::keys::take(i, Modifiers::CTRL, Key::Comma);
-            (close, super::keys::take(i, Modifiers::CTRL, Key::F), super::keys::take(i, Modifiers::NONE, Key::Escape))
-        });
-        // Ctrl + / Ctrl − / Ctrl 0 here too: the main window applies them (`screens.rs`).
-        if let Some(key) = super::screens::take_zoom_key(ui.ctx()) {
-            self.screen_zoom.key = Some(key);
-            ui.ctx().request_repaint_of(ViewportId::ROOT);
+        // Ctrl W closes it, as it closed the window it used to be.
+        if ui.input_mut(|i| super::keys::take(i, Modifiers::CTRL, Key::W)) {
+            self.close_settings();
+            return;
         }
+        let mut esc = ui.input_mut(|i| super::keys::take(i, Modifiers::NONE, Key::Escape));
         // Esc while a wallpaper slider or the pad is held puts back what it was, and nothing more;
-        // with a menu or the licences open, it closes them (no dialog sees Esc: it is taken here
-        // first).
+        // with a menu or the licences open, it closes them.
         if esc && self.wallpaper_esc(ui.ctx()) {
             esc = false;
         }
@@ -597,34 +457,20 @@ impl TruffleApp {
             esc = false;
         }
         let editing_elsewhere = ui.ctx().text_edit_focused() && !searching;
-        if close || (esc && !editing_elsewhere && self.settings_query.is_empty()) {
+        if esc && !editing_elsewhere && self.settings_query.is_empty() {
             self.close_settings();
             return;
         }
         if esc && !self.settings_query.is_empty() {
             self.settings_query.clear();
         }
-        if find {
-            ui.memory_mut(|m| m.request_focus(Id::new(SEARCH_ID)));
-        }
-        // Its size is kept once it is on screen (not while it is still being placed).
-        if self.settings_win.shown
-            && let Some(r) = ui.ctx().input(|i| i.viewport().inner_rect)
-            && r.width() >= MIN_SIZE.x - 1.0
-            && win::moved(self.prefs.settings_size, [r.width(), r.height()])
-        {
-            self.prefs.settings_size = Some([r.width(), r.height()]);
-            self.prefs_changed();
-        }
+        let p = self.palette;
+        ui.painter().rect_filled(ui.max_rect(), 0.0, p.main_bg);
         self.settings_contents(ui);
         self.licences_modal(ui.ctx());
-        motion::end_pass(ui.ctx());
-        // No Windows frame: a 1 px line keeps it apart from the window behind it.
-        ui.painter().rect_stroke(ui.max_rect(), CornerRadius::ZERO, Stroke::new(1.0, p.border), egui::StrokeKind::Inside);
-        resize_edges(ui.ctx(), "settings", false);
     }
 
-    /// Everything inside the Settings window, in `ui.max_rect()`: the section list on the left
+    /// Everything on the Settings page, in `ui.max_rect()`: the section list on the left
     /// (icons only when narrow) and the chosen section, or what the search found, on the right.
     pub(super) fn settings_contents(&mut self, ui: &mut Ui) {
         let p = self.palette;
@@ -632,18 +478,6 @@ impl TruffleApp {
         let narrow = full.width() < NARROW_W;
         let nav = Rect::from_min_max(full.min, pos2(full.left() + if narrow { STRIP_W } else { NAV_W }, full.bottom()));
         let body = Rect::from_min_max(pos2(nav.right(), full.top()), full.max);
-        let head = Rect::from_min_max(full.min, pos2(full.right(), full.top() + HEAD_H));
-
-        // The head row drags the window (made first, so everything on it stays clickable);
-        // double-click maximises, as on the main window.
-        let drag = ui.interact(head, Id::new("settings-drag"), Sense::click_and_drag());
-        if drag.drag_started() {
-            ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
-        }
-        if drag.double_clicked() {
-            let maximized = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
-            ui.ctx().send_viewport_cmd(ViewportCommand::Maximized(!maximized));
-        }
 
         let painter = ui.painter().clone();
         painter.rect_filled(nav, CornerRadius::ZERO, p.sidebar_bg);
@@ -660,6 +494,9 @@ impl TruffleApp {
                 let look = if page == self.settings_page && !searching { Look::Sel } else { Look::Plain };
                 if fin::ib(ui, &p, r, Id::new(("settings-strip", page.title())), page.icon(), look, page.title()).clicked() {
                     self.choose_settings_page(page);
+                }
+                if page == Page::About && self.update_waiting() {
+                    painter.circle_filled(pos2(r.right() - 6.0, r.top() + 6.0), 3.5, p.accent_ink);
                 }
                 y += 38.0;
             }
@@ -690,15 +527,19 @@ impl TruffleApp {
                 let font = if chosen { bold(12.5) } else { medium(12.5) };
                 let text_c = motion::color(ui.ctx(), resp.id.with("text"), if chosen { p.text_strong } else { p.text }, motion::HOVER);
                 painter.text(pos2(icon.right() + 12.0, row.center().y), Align2::LEFT_CENTER, page.title(), font, text_c);
+                // A new version waits: a dot on About.
+                if page == Page::About && self.update_waiting() {
+                    painter.circle_filled(pos2(row.right() - 14.0, row.center().y), 3.5, p.accent_ink);
+                }
                 if resp.clicked() {
                     self.choose_settings_page(page);
                 }
             }
         }
 
-        // The section's title (and the search box, when narrow), and the window's close button.
+        // The section's title (and the search box, when narrow), and the close button (back).
         let close = Rect::from_min_size(pos2(full.right() - 12.0 - 30.0, full.top() + 11.0), vec2(30.0, 30.0));
-        if fin::ib(ui, &p, close, Id::new("settings-close"), "x", Look::Plain, "Close (Esc)").clicked() {
+        if fin::ib(ui, &p, close, Id::new("settings-close"), "x", Look::Plain, "Close Settings (Esc)").clicked() {
             self.close_settings();
             return;
         }
@@ -859,6 +700,7 @@ impl TruffleApp {
                 self.system_row(ui, item);
             }
             Item::Shortcuts => kit::card_body(ui, &p, shortcuts_grid),
+            Item::Updates => self.updates_section(ui),
             Item::Version | Item::Plays | Item::Account | Item::Helpers | Item::Folder | Item::Details | Item::Credits => {
                 self.about_item(ui, item);
             }
@@ -1354,7 +1196,7 @@ mod tests {
                 seen.push(item);
             }
         }
-        assert_eq!(seen.len(), 47);
+        assert_eq!(seen.len(), 48);
     }
 
     #[test]

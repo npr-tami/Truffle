@@ -675,6 +675,7 @@ impl TruffleApp {
             MiddleTab::Albums | MiddleTab::Artists => self.collection_page(ui),
             MiddleTab::Profile => self.profile_page(ui),
             MiddleTab::People => self.people_page(ui),
+            MiddleTab::Settings => self.settings_page_view(ui),
             // Narrow-only pages, when the window is made wider: the sidebar shows the playlists
             // and the side panel the playing song.
             MiddleTab::Library | MiddleTab::Playing => self.home_view(ui),

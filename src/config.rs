@@ -558,6 +558,18 @@ pub struct Settings {
     pub main_window_maximized: bool,
     /// The Now playing view's window size as it was left (logical pixels).
     pub stage_window_size: Option<[f32; 2]>,
+
+    // --- Updates (UI-owned) ---
+    /// Look for a new Truffle on GitHub once a day.
+    pub check_updates: bool,
+    /// Versions "Skip this version" was chosen for.
+    pub skipped_updates: Vec<String>,
+    /// "Later": no popup before this (unix seconds).
+    pub update_remind_after: u64,
+    /// When the last check for updates came back (unix seconds).
+    pub update_last_check: u64,
+    /// The version that ran last, for the one "Truffle is updated to" note after an update.
+    pub last_run_version: Option<String>,
 }
 
 /// User-chosen colours (RGB). Any `None` keeps the base theme's colour.
@@ -642,6 +654,11 @@ impl Default for Settings {
             main_window_rect: None,
             main_window_maximized: false,
             stage_window_size: None,
+            check_updates: true,
+            skipped_updates: Vec::new(),
+            update_remind_after: 0,
+            update_last_check: 0,
+            last_run_version: None,
         }
     }
 }

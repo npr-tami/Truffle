@@ -292,6 +292,8 @@ struct Controller {
     // --- Persistence ---
     state_dirty: bool,
     last_state_save: Instant,
+    /// The song, playing or not and the last seek, as state.json last saved them.
+    saved_mark: SaveMark,
     settings_changed_at: Option<Instant>,
     /// Shown once at start: state.json had to be recovered.
     state_notice: Option<String>,
@@ -411,6 +413,7 @@ impl Controller {
             play_id: 0,
             state_dirty: false,
             last_state_save: Instant::now(),
+            saved_mark: SaveMark::default(),
             settings_changed_at: None,
             state_notice: notice,
             finished: false,
@@ -609,9 +612,9 @@ impl Controller {
         // The audio cache size is changed in the UI; YouTube's files follow it at once.
         self.youtube.set_disk_cache_mb(lock(&self.settings).audio_cache_mb);
         self.check_selftest();
-        // While playing, the saved position changes, so a periodic save keeps the resume point fresh.
-        let playing = self.pb.status == PlayStatus::Playing;
-        if (self.state_dirty || playing) && self.last_state_save.elapsed() >= STATE_SAVE_INTERVAL {
+        // A new song, a pause or start, or a seek is saved at once (so even a force-quit comes back
+        // on the right song); while playing, a periodic save keeps the resume point fresh.
+        if state_save_due(&self.saved_mark, &self.save_mark(), self.state_dirty, self.last_state_save.elapsed()) {
             self.save_state();
         }
     }
@@ -817,9 +820,15 @@ impl Controller {
         }
     }
 
+    /// What [`state_save_due`] compares: the song, playing or not, the last seek.
+    fn save_mark(&self) -> SaveMark {
+        SaveMark { track: self.pb.track.as_ref().map(|t| t.uri.clone()), playing: self.pb.status == PlayStatus::Playing, seek: self.last_seek.map(|(_, at)| at) }
+    }
+
     fn save_state(&mut self) {
         self.state_dirty = false;
         self.last_state_save = Instant::now();
+        self.saved_mark = self.save_mark();
         let live = self.saved_live_queue();
         let queue = live.as_ref().or(self.saved_queue.as_ref());
         if let Err(e) = persist::save_state(&self.paths, &self.history, queue) {
@@ -843,6 +852,22 @@ impl Drop for Controller {
             self.save_state();
         }
     }
+}
+
+/// The playback state.json last saved, as far as saving at once goes.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct SaveMark {
+    track: Option<String>,
+    playing: bool,
+    /// When the last seek was asked for.
+    seek: Option<Instant>,
+}
+
+/// Whether to save state.json now: at once when the song changed, it paused or started, or it was
+/// seeked; otherwise every [`STATE_SAVE_INTERVAL`] while playing or with something else changed.
+/// (The file is written atomically: a temp file, then a rename.)
+fn state_save_due(saved: &SaveMark, now: &SaveMark, dirty: bool, since_last: Duration) -> bool {
+    saved != now || ((dirty || now.playing) && since_last >= STATE_SAVE_INTERVAL)
 }
 
 /// Lock the shared settings, recovering from a poisoned lock instead of panicking.
@@ -940,7 +965,32 @@ fn open_page(mode: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{control_word, open_page, user_error};
+    use super::{SaveMark, STATE_SAVE_INTERVAL, control_word, open_page, state_save_due, user_error};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn state_is_saved_at_once_on_a_new_song_a_pause_or_a_seek() {
+        let mark = |track: &str, playing: bool, seek: Option<Instant>| SaveMark { track: Some(track.to_owned()), playing, seek };
+        let saved = mark("a", true, None);
+        let soon = Duration::from_secs(1);
+        // Nothing new, a second later: no save.
+        assert!(!state_save_due(&saved, &saved.clone(), false, soon));
+        // A new song (next, previous, a pick, the end of one): at once.
+        assert!(state_save_due(&saved, &mark("b", true, None), false, soon));
+        // Paused, or started again: at once.
+        assert!(state_save_due(&saved, &mark("a", false, None), false, soon));
+        // A seek: at once.
+        assert!(state_save_due(&saved, &mark("a", true, Some(Instant::now())), false, soon));
+        // Playing on: the periodic save.
+        assert!(state_save_due(&saved, &saved.clone(), false, STATE_SAVE_INTERVAL));
+        // Paused and nothing changed: never.
+        let paused = mark("a", false, None);
+        assert!(!state_save_due(&paused, &paused.clone(), false, STATE_SAVE_INTERVAL * 10));
+        // Paused with something else changed (the queue, the history): the periodic save.
+        assert!(state_save_due(&paused, &paused.clone(), true, STATE_SAVE_INTERVAL));
+        // Nothing playing yet at start, then a song loads: saved.
+        assert!(state_save_due(&SaveMark::default(), &mark("a", false, None), false, soon));
+    }
 
     #[test]
     fn a_self_test_open_names_its_page_and_nothing_else_opens() {

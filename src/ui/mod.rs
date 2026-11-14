@@ -45,6 +45,7 @@ mod stage;
 mod svgicon;
 mod theme;
 mod tracks;
+mod updater;
 mod util;
 mod wallpaper;
 mod wide;
@@ -204,6 +205,8 @@ pub(crate) enum MiddleTab {
     /// Narrow widths: the playlists (the sidebar's lists), and the playing song's page.
     Library,
     Playing,
+    /// Settings, as a page of the middle column (`settings.rs`).
+    Settings,
 }
 
 /// The playlist-details editor (name + description).
@@ -344,10 +347,8 @@ pub struct TruffleApp {
     discord_id_input: String,
     discord_id_edited: Option<Instant>,
 
-    /// Settings is open: in its own window (`settings_win`) or inside the main window, by
-    /// "Settings opens".
+    /// Settings is the page shown (`MiddleTab::Settings`); kept in step by `sync_settings_page`.
     settings_open: bool,
-    settings_win: settings::SettingsWindow,
     /// Settings → About: what it asked the controller for, and its record.
     about: settings::AboutState,
     edit_details: Option<EditDetails>,
@@ -360,6 +361,8 @@ pub struct TruffleApp {
     wallpaper: WallpaperState,
 
     toasts: Vec<Toast>,
+    /// Updates: the daily check, the popup, the download.
+    updater: updater::Updater,
     /// The Final design's frame: the sidebar opened over the page, the title bar's wordmark.
     frame: frame::FrameState,
     /// Lyrics fetched this run, by song (the side panel and the Playing page).
@@ -529,7 +532,6 @@ impl TruffleApp {
             discord_id_input: prefs.discord_app_id.clone().unwrap_or_default(),
             discord_id_edited: None,
             settings_open: false,
-            settings_win: settings::SettingsWindow::default(),
             about: settings::AboutState::default(),
             edit_details: None,
             yt_pick: None,
@@ -538,6 +540,7 @@ impl TruffleApp {
             cover_rx,
             wallpaper: WallpaperState::default(),
             toasts: Vec::new(),
+            updater: updater::Updater::default(),
             frame: frame::FrameState::default(),
             lyrics: panel::LyricsCache::new(),
             collection: None,
@@ -789,6 +792,11 @@ impl TruffleApp {
             s.fill_cards = p.fill_cards;
             s.wide_screens = p.wide_screens;
             s.now_playing_blur = p.now_playing_blur;
+            s.check_updates = p.check_updates;
+            s.skipped_updates = p.skipped_updates.clone();
+            s.update_remind_after = p.update_remind_after;
+            s.update_last_check = p.update_last_check;
+            s.last_run_version = p.last_run_version.clone();
         }
         self.settings_dirty_at = Some(Instant::now());
     }
@@ -1330,12 +1338,15 @@ impl TruffleApp {
             ui.memory_mut(|m| m.request_focus(Id::new(search::SEARCH_BOX_ID)));
         }
         if open_settings && !mini {
-            // Settings' window opens or comes to the front (Ctrl+, in that window closes it).
-            self.open_settings();
+            // Ctrl+, opens Settings, and on Settings goes back to the page before.
+            if self.settings_open {
+                self.close_settings();
+            } else {
+                self.open_settings();
+            }
             return;
         }
-        // Dialogs are not drawn in the mini player, so they don't own the keys there. Settings has
-        // a window of its own with its own keys: this window's still work.
+        // Dialogs are not drawn in the mini player, so they don't own the keys there.
         if !mini && (self.edit_details.is_some() || self.link_dialog.is_some() || self.already_in_up(ui.ctx())) {
             // Keys belong to the open dialog. "Already in" pops up by itself, maybe as the user
             // types in a text box, which it takes the keys from: the rest isn't Space, R or Home.
@@ -1444,7 +1455,10 @@ impl TruffleApp {
         if show_playing {
             self.locate_current_track();
         }
-        if focus_filter && self.view.is_some() {
+        if focus_filter && self.settings_open {
+            // On Settings, Ctrl+F finds a setting.
+            ui.memory_mut(|m| m.request_focus(Id::new(settings::SEARCH_ID)));
+        } else if focus_filter && self.view.is_some() {
             self.middle_tab = MiddleTab::Songs;
             ui.memory_mut(|m| m.request_focus(Id::new(TRACK_FILTER_ID)));
         }
@@ -1664,6 +1678,7 @@ impl eframe::App for TruffleApp {
         self.fonts.poll(ctx);
         self.handle_cover_picks();
         self.shell_logic(ctx);
+        self.updater_logic(ctx);
         self.flush_settings_if_due(ctx);
         if let Some(SleepTimerState::Until(at)) = self.sleep_timer
             && Instant::now().saturating_duration_since(at) > SLEEP_TIMER_STALE
@@ -1684,10 +1699,7 @@ impl eframe::App for TruffleApp {
             return;
         }
         if ctx.input(|i| i.viewport().minimized == Some(true)) {
-            // Only while Settings has a window of its own (eframe counts it as shown, though
-            // Windows hid it with this one): nothing to draw, and that window goes until this one
-            // is back, so minimised Truffle stops drawing again.
-            self.park_settings_window();
+            // Nothing to draw while minimised.
             return;
         }
         self.images.begin_frame();
@@ -1714,8 +1726,6 @@ impl eframe::App for TruffleApp {
                 _ => self.login_screen(ui),
             }
             if self.auth == AuthState::LoggedIn {
-                // Before `settings_logic`, which sends what was changed in it this pass.
-                self.settings_window(&ctx);
                 self.settings_logic(&ctx);
                 self.edit_details_modal(&ctx);
                 self.yt_pick_modal(&ctx);
@@ -1725,6 +1735,7 @@ impl eframe::App for TruffleApp {
                 self.already_in_modal(&ctx);
                 self.dupes_modal(&ctx);
                 self.link_dialog_modal(&ctx);
+                self.update_dialogs(&ctx);
             }
             if self.auth != AuthState::LoggedIn {
                 self.toasts_ui(&ctx);

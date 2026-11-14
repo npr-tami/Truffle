@@ -717,7 +717,10 @@ impl TruffleApp {
 
         // The search box, centred in the space between forward and the avatar.
         let from = fwd.right() + 4.0;
-        let to = ava.left() - 8.0;
+        // The "Update ready" pill (after Later), between the search box and the avatar.
+        let edge = ava.left() - 8.0;
+        let pill = self.update_pill(ui, edge, cy);
+        let to = if pill < edge { pill - 8.0 } else { edge };
         let sw = l.search_w.min((to - from - 8.0).max(120.0));
         let left = from + ((to - from) - sw) / 2.0;
         let rect = Rect::from_min_size(pos2(left, cy - 15.0), vec2(sw, 30.0));

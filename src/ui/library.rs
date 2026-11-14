@@ -101,14 +101,6 @@ impl TruffleApp {
     /// CANCEL; when it has every song, DON'T ADD or ADD ANYWAY. It opens by itself when the check
     /// comes back, so it waits while something else is open. The next question waits for this one.
     pub(super) fn already_in_modal(&mut self, ctx: &egui::Context) {
-        // Settings may stay open a long while beside this window: say once why no box comes.
-        if self.settings_open
-            && let Some(uri) = self.already_in.untold()
-            && let Some(pl) = self.playlist(&uri)
-        {
-            let text = format!("Already in \"{}\": close Settings to choose what to add.", pl.name);
-            self.toast(text, false);
-        }
         let name = self.already_in.first().and_then(|a| self.playlist(&a.playlist_uri)).map(|pl| pl.name.clone());
         let wait = self.something_else_open(ctx);
         let p = self.palette;
@@ -123,12 +115,10 @@ impl TruffleApp {
     }
 
     /// Something is open that the "Already in" box would cover, or take a click or key from:
-    /// another dialog, a menu, a drag, the sidebar over the page, the shortcuts window, or Settings
-    /// (its window sits over the middle of this one, where the box would be).
+    /// another dialog, a menu, a drag, the sidebar over the page, or the shortcuts window.
     fn something_else_open(&self, ctx: &egui::Context) -> bool {
         self.dialog_open()
             || self.help_open
-            || self.settings_open
             || self.song_menu.is_some()
             || self.sidebar_over_open(ctx.content_rect().width())
             || egui::Popup::is_any_open(ctx)
@@ -183,8 +173,6 @@ pub(super) struct AlreadyInState {
     /// Playlists DELETE or REMOVE was pressed for: questions about them wait, and go with them.
     /// Until the playlists come again: one still there then wasn't removed, and is asked about.
     removing: Vec<String>,
-    /// The newest question the user was told waits for Settings to close.
-    told: u64,
 }
 
 /// An "Already in" box on screen.
@@ -229,16 +217,6 @@ impl AlreadyInState {
     /// The question asked now can show: there is one, and its playlist isn't being removed.
     fn can_ask(&self) -> bool {
         self.first().is_some_and(|a| !self.removing.contains(&a.playlist_uri))
-    }
-
-    /// The newest question's playlist, once: to tell the user it waits for Settings to close.
-    fn untold(&mut self) -> Option<String> {
-        let (n, already) = self.asks.back()?;
-        if *n <= self.told {
-            return None;
-        }
-        self.told = *n;
-        Some(already.playlist_uri.clone())
     }
 
     /// One pass of the question asked now, about the playlist `name` (`None`: it went, and the
@@ -864,20 +842,6 @@ mod tests {
         state.listed(|uri| uri == GYM);
         show(&ctx, &mut state, Vec::new());
         assert!(ctx.read_response(state.id().with(0)).is_some());
-    }
-
-    #[test]
-    fn a_question_that_waits_for_settings_is_told_about_once() {
-        let mut state = AlreadyInState::default();
-        assert_eq!(state.untold(), None);
-        // Dropped on Gym with Settings open (or Settings opened since): told once.
-        state.found(asked_in(GYM, &["a", "b"], &["a"]));
-        assert_eq!(state.untold().as_deref(), Some(GYM));
-        assert_eq!(state.untold(), None);
-        // Dropped on Road too: told about that one.
-        state.found(asked_in(ROAD, &["c"], &["c"]));
-        assert_eq!(state.untold().as_deref(), Some(ROAD));
-        assert_eq!(state.untold(), None);
     }
 
     /// One pass of the questions in `state` over a song row that fills the window: the row's
