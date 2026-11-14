@@ -2,7 +2,7 @@
 
 The newest version is at the top.
 
-## 0.1.2
+## 0.1.2 · 14/11/2026
 
 - Settings opens as a page inside Truffle instead of a separate window (Esc or Back closes it)
 - Truffle can update itself: once a day it looks for a new version and asks first (Update now, Later, Skip this version, or stop checking)
