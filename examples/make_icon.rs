@@ -1,7 +1,6 @@
-//! Renders Truffle's app icon from the logo: a turntable, its chrome tonearm on a black record and
-//! the glint where the needle meets the groove. Two styles: the silver deck (`assets/logo.svg`)
-//! and the black one framed in chrome (`assets/logo_black.svg`), each with a simpler cut for
-//! 16-32 px (`*_small.svg`).
+//! Renders Coda's app icon: four rounded bars (teal, blue, violet, pink) on a dark rounded
+//! square (`assets/coda.svg`, with a simpler cut for 16-32 px in `assets/coda-small.svg`), and the
+//! tray icon, the bars alone on a see-through background (`assets/coda-tray.svg`).
 //!
 //! Regenerate the files in `assets/` with:
 //!
@@ -10,17 +9,16 @@
 //! cargo run --example make_icon -- --preview C:\some\dir\preview.png   (optional contact sheet)
 //! ```
 //!
-//! Every size is rendered directly from the vector logo at that size (no downscaling).
+//! Every size is rendered directly from the vector art at that size (no downscaling).
 //!
 //! Outputs:
-//! - `assets/truffle.png`, `assets/truffle_black.png`   256x256, embedded for the window/taskbar
-//!   icon and the startup screen
-//! - `assets/tray/{silver,black}_{16,20,24,28,32}.png`  the tray icon at each scaling's size
-//! - `assets/truffle.ico`   the silver deck at 16, 20, 24, 32, 40, 48, 64, 128, 256 (32-bit BMP
+//! - `assets/coda.png`   256x256, embedded for the window/taskbar icon and the startup screen
+//! - `assets/tray/coda_{16,20,24,28,32}.png`  the tray icon at each scaling's size
+//! - `assets/coda.ico`   the app icon at 16, 20, 24, 32, 40, 48, 64, 128, 256 (32-bit BMP
 //!   entries, PNG for 256 as is standard; some decoders such as GDI+ mishandle smaller PNG
 //!   entries), embedded into the exe by build.rs
 //!
-//! The preview is a contact sheet of both styles' icon sizes.
+//! The preview is a contact sheet of the app icon's and the tray icon's sizes.
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -46,17 +44,15 @@ fn main() {
     let tray = assets.join("tray");
     std::fs::create_dir_all(&tray).expect("create assets/tray/");
     let mut sheets = Vec::new();
-    for (style, name, png) in [(&SILVER, "silver", "truffle.png"), (&BLACK, "black", "truffle_black.png")] {
-        let images: Vec<RgbaImage> = ICO_SIZES.iter().map(|&s| render(style, s)).collect();
-        std::fs::write(assets.join(png), png_bytes(images.last().expect("256"))).expect("write png");
-        for size in TRAY_SIZES {
-            std::fs::write(tray.join(format!("{name}_{size}.png")), png_bytes(&render(style, size))).expect("write png");
-        }
-        if name == "silver" {
-            std::fs::write(assets.join("truffle.ico"), ico_bytes(&images)).expect("write ico");
-        }
-        sheets.push(contact_sheet(&images));
+    let images: Vec<RgbaImage> = ICO_SIZES.iter().map(|&s| render(&APP, s)).collect();
+    std::fs::write(assets.join("coda.png"), png_bytes(images.last().expect("256"))).expect("write png");
+    std::fs::write(assets.join("coda.ico"), ico_bytes(&images)).expect("write ico");
+    sheets.push(contact_sheet(&images));
+    let trays: Vec<RgbaImage> = TRAY_SIZES.iter().map(|&s| render(&TRAY, s)).collect();
+    for (size, img) in TRAY_SIZES.iter().zip(&trays) {
+        std::fs::write(tray.join(format!("coda_{size}.png")), png_bytes(img)).expect("write png");
     }
+    sheets.push(contact_sheet(&trays));
     println!("wrote {}", assets.display());
 
     if let Some(path) = preview {
@@ -72,16 +68,16 @@ fn main() {
 // ---------------------------------------------------------------------------------------------
 // Rendering
 
-/// One style of the logo, drawn in a 256 box, and its simpler cut for small sizes.
+/// The artwork, and its simpler cut for small sizes.
 struct Logo {
     full: &'static str,
     small: &'static str,
 }
 
-const SILVER: Logo = Logo { full: include_str!("../assets/logo.svg"), small: include_str!("../assets/logo_small.svg") };
-const BLACK: Logo = Logo { full: include_str!("../assets/logo_black.svg"), small: include_str!("../assets/logo_black_small.svg") };
+const APP: Logo = Logo { full: include_str!("../assets/coda.svg"), small: include_str!("../assets/coda-small.svg") };
+const TRAY: Logo = Logo { full: include_str!("../assets/coda-tray.svg"), small: include_str!("../assets/coda-tray.svg") };
 
-/// Sizes up to this use the small cut: no grooves, knob or glint, and a thicker arm.
+/// Sizes up to this use the small cut.
 const SMALL_UP_TO: u32 = 32;
 
 fn render(logo: &Logo, size: u32) -> RgbaImage {

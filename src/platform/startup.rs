@@ -10,14 +10,24 @@ use anyhow::{Context, Result};
 /// FileDescription instead, see `build.rs`.) Debug builds use their own, like their own data
 /// folder and single-instance names, so a test copy never replaces the real entry.
 #[cfg(not(debug_assertions))]
-pub const RUN_VALUE_NAME: &str = "Truffle";
+pub const RUN_VALUE_NAME: &str = "coda";
 #[cfg(debug_assertions)]
-pub const RUN_VALUE_NAME: &str = "Truffle (dev)";
+pub const RUN_VALUE_NAME: &str = "coda (dev)";
 /// File name of the Start-menu shortcut (separate for debug builds, as above).
 #[cfg(not(debug_assertions))]
-pub const SHORTCUT_FILE_NAME: &str = "Truffle.lnk";
+pub const SHORTCUT_FILE_NAME: &str = "coda.lnk";
 #[cfg(debug_assertions)]
-pub const SHORTCUT_FILE_NAME: &str = "Truffle (dev).lnk";
+pub const SHORTCUT_FILE_NAME: &str = "coda (dev).lnk";
+/// The app's old name's Run value and Start-menu shortcut: moved to Coda's at start-up
+/// ([`migrate_old_entries`]).
+#[cfg(not(debug_assertions))]
+pub const OLD_RUN_VALUE_NAME: &str = "Truffle";
+#[cfg(debug_assertions)]
+pub const OLD_RUN_VALUE_NAME: &str = "Truffle (dev)";
+#[cfg(not(debug_assertions))]
+pub const OLD_SHORTCUT_FILE_NAME: &str = "Truffle.lnk";
+#[cfg(debug_assertions)]
+pub const OLD_SHORTCUT_FILE_NAME: &str = "Truffle (dev).lnk";
 pub const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 /// Where Task Manager records startup entries the user switched off.
 pub const STARTUP_APPROVED_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
@@ -52,23 +62,23 @@ pub fn startup_approved_disabled(data: &[u8]) -> bool {
 }
 
 fn current_exe() -> Result<PathBuf> {
-    std::env::current_exe().context("couldn't find where Truffle is running from")
+    std::env::current_exe().context("couldn't find where coda is running from")
 }
 
 pub fn set_start_with_windows(enabled: bool) -> Result<()> {
     if enabled {
         let exe = current_exe()?;
         registry::set_string(RUN_KEY, RUN_VALUE_NAME, &run_command(&exe))
-            .context("couldn't add Truffle to the apps that start with Windows")?;
+            .context("couldn't add coda to the apps that start with Windows")?;
         // If it was switched off in Task Manager, that would silently win: clear it.
         if let Err(e) = registry::delete_value(STARTUP_APPROVED_KEY, RUN_VALUE_NAME) {
             log::debug!("could not clear the Task Manager startup flag: {e}");
         }
-        log::info!("Truffle will start with Windows");
+        log::info!("coda will start with Windows");
     } else {
         registry::delete_value(RUN_KEY, RUN_VALUE_NAME)
-            .context("couldn't remove Truffle from the apps that start with Windows")?;
-        log::info!("Truffle will no longer start with Windows");
+            .context("couldn't remove coda from the apps that start with Windows")?;
+        log::info!("coda will no longer start with Windows");
     }
     Ok(())
 }
@@ -92,11 +102,44 @@ pub fn starts_with_windows() -> bool {
     }
 }
 
-pub fn create_start_menu_shortcut() -> Result<PathBuf> {
-    let exe = current_exe()?;
+/// The old name's start entries become Coda's, keeping the user's choice: an old Run entry
+/// (which may point at an old folder) is replaced by one for this exe, with Task Manager's
+/// on/off flag carried over; an old Start-menu shortcut is replaced by one to this exe.
+/// Nothing happens when there are no old entries.
+pub fn migrate_old_entries() -> Result<()> {
+    if registry::get_string(RUN_KEY, OLD_RUN_VALUE_NAME)?.is_some() {
+        let exe = current_exe()?;
+        let approved = registry::get_binary(STARTUP_APPROVED_KEY, OLD_RUN_VALUE_NAME)?;
+        registry::set_string(RUN_KEY, RUN_VALUE_NAME, &run_command(&exe)).context("couldn't add coda's start entry")?;
+        match &approved {
+            Some(data) => registry::set_binary(STARTUP_APPROVED_KEY, RUN_VALUE_NAME, data)?,
+            None => registry::delete_value(STARTUP_APPROVED_KEY, RUN_VALUE_NAME)?,
+        }
+        registry::delete_value(RUN_KEY, OLD_RUN_VALUE_NAME).context("couldn't remove the old start entry")?;
+        registry::delete_value(STARTUP_APPROVED_KEY, OLD_RUN_VALUE_NAME)?;
+        let off = approved.as_deref().is_some_and(startup_approved_disabled);
+        log::info!("moved the old start-with-Windows entry to {} ({})", exe.display(), if off { "switched off in Task Manager" } else { "on" });
+    }
+    let programs = start_menu_programs()?;
+    let old = programs.join(OLD_SHORTCUT_FILE_NAME);
+    if old.is_file() {
+        let link = programs.join(SHORTCUT_FILE_NAME);
+        shortcut::create(&current_exe()?, &link).context("couldn't create the Start menu shortcut")?;
+        std::fs::remove_file(&old).with_context(|| format!("couldn't remove {}", old.display()))?;
+        log::info!("replaced the old Start menu shortcut with {}", link.display());
+    }
+    Ok(())
+}
+
+fn start_menu_programs() -> Result<PathBuf> {
     let dirs = directories::BaseDirs::new().context("couldn't find your user folders")?;
     // `config_dir` is %APPDATA% (Roaming) on Windows.
-    let programs = dirs.config_dir().join(r"Microsoft\Windows\Start Menu\Programs");
+    Ok(dirs.config_dir().join(r"Microsoft\Windows\Start Menu\Programs"))
+}
+
+pub fn create_start_menu_shortcut() -> Result<PathBuf> {
+    let exe = current_exe()?;
+    let programs = start_menu_programs()?;
     std::fs::create_dir_all(&programs)
         .with_context(|| format!("couldn't open the Start menu folder ({})", programs.display()))?;
     let link = programs.join(SHORTCUT_FILE_NAME);
@@ -113,7 +156,7 @@ pub(super) mod registry {
     use anyhow::{Result, bail};
     use windows_sys::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SUCCESS, WIN32_ERROR};
     use windows_sys::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
+        HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_BINARY, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
         RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
     };
 
@@ -132,6 +175,20 @@ pub(super) mod registry {
         // SAFETY: all pointers are valid, NUL-terminated buffers that outlive the call.
         let code = unsafe {
             RegSetKeyValueW(HKEY_CURRENT_USER, key.as_ptr(), name.as_ptr(), REG_SZ, data.as_ptr().cast::<c_void>(), bytes)
+        };
+        if code != ERROR_SUCCESS {
+            bail!(os_error(code));
+        }
+        Ok(())
+    }
+
+    /// Writes a REG_BINARY value under HKCU, creating the key if needed.
+    pub fn set_binary(key: &str, name: &str, value: &[u8]) -> Result<()> {
+        let (key, name) = (wide(key), wide(name));
+        let bytes = u32::try_from(value.len())?;
+        // SAFETY: valid NUL-terminated strings; `value` has `bytes` readable bytes.
+        let code = unsafe {
+            RegSetKeyValueW(HKEY_CURRENT_USER, key.as_ptr(), name.as_ptr(), REG_BINARY, value.as_ptr().cast::<c_void>(), bytes)
         };
         if code != ERROR_SUCCESS {
             bail!(os_error(code));
@@ -206,7 +263,7 @@ pub(super) mod registry {
         dword_in(HKEY_CURRENT_USER, key, name)
     }
 
-    /// A REG_SZ value under HKLM (read only; everyone may read the keys Truffle reads there).
+    /// A REG_SZ value under HKLM (read only; everyone may read the keys Coda reads there).
     pub fn machine_string(key: &str, name: &str) -> Result<Option<String>> {
         string_in(HKEY_LOCAL_MACHINE, key, name)
     }
@@ -233,7 +290,7 @@ mod shortcut {
     pub fn create(exe: &Path, link: &Path) -> Result<()> {
         let (exe, link) = (exe.to_path_buf(), link.to_path_buf());
         std::thread::Builder::new()
-            .name("truffle-shortcut".to_owned())
+            .name("coda-shortcut".to_owned())
             .spawn(move || write(&exe, &link))
             .context("couldn't start a helper thread")?
             .join()
@@ -263,7 +320,7 @@ mod shortcut {
             if let Some(dir) = exe.parent() {
                 shell_link.SetWorkingDirectory(&HSTRING::from(dir))?;
             }
-            shell_link.SetDescription(&HSTRING::from("Truffle: a small, fast Spotify player"))?;
+            shell_link.SetDescription(&HSTRING::from("coda: a small, fast Spotify player"))?;
             shell_link.SetIconLocation(&HSTRING::from(exe), 0)?;
             let file: IPersistFile = shell_link.cast()?;
             file.Save(&HSTRING::from(link), true)?;
@@ -282,6 +339,9 @@ pub(super) mod registry {
         bail!("only available on Windows")
     }
     pub fn delete_value(_key: &str, _name: &str) -> Result<()> {
+        bail!("only available on Windows")
+    }
+    pub fn set_binary(_key: &str, _name: &str, _value: &[u8]) -> Result<()> {
         bail!("only available on Windows")
     }
     pub fn get_string(_key: &str, _name: &str) -> Result<Option<String>> {
@@ -318,18 +378,18 @@ mod tests {
 
     #[test]
     fn run_command_quotes_the_exe() {
-        let exe = Path::new(r"C:\Program Files\Truffle\truffle.exe");
-        assert_eq!(run_command(exe).to_string_lossy(), r#""C:\Program Files\Truffle\truffle.exe" --minimized"#);
+        let exe = Path::new(r"C:\Program Files\coda\coda.exe");
+        assert_eq!(run_command(exe).to_string_lossy(), r#""C:\Program Files\coda\coda.exe" --minimized"#);
     }
 
     #[test]
     fn run_command_recognises_this_exe_only() {
-        let exe = Path::new(r"C:\Program Files\Truffle\truffle.exe");
+        let exe = Path::new(r"C:\Program Files\coda\coda.exe");
         assert!(command_targets(&run_command(exe).to_string_lossy(), exe));
-        assert!(command_targets(r#""c:/program files/truffle/TRUFFLE.EXE" --minimized"#, exe));
-        assert!(command_targets(r"C:\Tools\truffle.exe --minimized", Path::new(r"C:\Tools\truffle.exe")));
-        assert!(command_targets(r#""\\?\C:\Tools\truffle.exe""#, Path::new(r"C:\Tools\truffle.exe")));
-        assert!(!command_targets(r#""C:\Other\truffle.exe" --minimized"#, exe));
+        assert!(command_targets(r#""c:/program files/coda/CODA.EXE" --minimized"#, exe));
+        assert!(command_targets(r"C:\Tools\coda.exe --minimized", Path::new(r"C:\Tools\coda.exe")));
+        assert!(command_targets(r#""\\?\C:\Tools\coda.exe""#, Path::new(r"C:\Tools\coda.exe")));
+        assert!(!command_targets(r#""C:\Other\coda.exe" --minimized"#, exe));
         assert!(!command_targets("", exe));
         assert!(!command_targets(r#""""#, exe));
     }
@@ -338,18 +398,18 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn registry_reads_existing_and_missing_values() {
-        let missing = registry::get_string(RUN_KEY, "truffle-test-value-that-does-not-exist").unwrap();
+        let missing = registry::get_string(RUN_KEY, "coda-test-value-that-does-not-exist").unwrap();
         assert_eq!(missing, None);
-        let missing_key = registry::get_binary(r"Software\truffle-test-key-that-does-not-exist", "x").unwrap();
+        let missing_key = registry::get_binary(r"Software\coda-test-key-that-does-not-exist", "x").unwrap();
         assert_eq!(missing_key, None);
         let app_data = registry::get_string(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "AppData")
             .unwrap()
             .unwrap_or_default();
         assert!(app_data.contains('\\'), "{app_data:?}");
         // Deleting a value that isn't there is not an error.
-        registry::delete_value(r"Software\truffle-test-key-that-does-not-exist", "x").unwrap();
+        registry::delete_value(r"Software\coda-test-key-that-does-not-exist", "x").unwrap();
         // A number: missing is None, and text read as a number is an error.
-        assert_eq!(registry::get_dword(RUN_KEY, "truffle-test-value-that-does-not-exist").unwrap(), None);
+        assert_eq!(registry::get_dword(RUN_KEY, "coda-test-value-that-does-not-exist").unwrap(), None);
         assert!(registry::get_dword(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", "AppData").is_err());
     }
 
@@ -357,9 +417,9 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn shortcut_is_written() {
-        let dir = std::env::temp_dir().join(format!("truffle-lnk-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-lnk-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let link = dir.join("Truffle test.lnk");
+        let link = dir.join("coda test.lnk");
         let exe = std::env::current_exe().unwrap();
         shortcut::create(&exe, &link).unwrap();
         let bytes = std::fs::read(&link).unwrap();

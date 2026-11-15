@@ -130,7 +130,7 @@ struct TempDir(PathBuf);
 
 impl TempDir {
     fn new(name: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("truffle-webapi-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-webapi-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         Self(dir)
@@ -406,7 +406,7 @@ async fn liked_since_reads_only_the_new_songs() {
     assert!(songs.iter().all(|t| t.uri != song("80")));
     assert!(songs.iter().all(|t| t.name.starts_with("Spotify's")), "read again, not kept");
 
-    // A saved copy without dates (older Truffles) never meets: every song is read.
+    // A saved copy without dates (older Codas) never meets: every song is read.
     let undated: Vec<TrackInfo> = known.iter().cloned().map(|t| TrackInfo { added_at: 0, ..t }).collect();
     let (songs, requests) = api.liked_tracks_since(&undated, 0, &quiet).await.unwrap();
     assert_eq!((songs.len(), requests), (121, 3));

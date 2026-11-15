@@ -989,7 +989,7 @@ pub async fn follow_write(session: &Session, uri: &str, follow: bool) -> Result<
 // ---------------------------------------------------------------------------------------------
 // Playlist changes, sent once (as Spotify's own apps do, through the session)
 
-/// How long a change may take before Truffle stops waiting (it may still land).
+/// How long a change may take before Coda stops waiting (it may still land).
 const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How a change went.

@@ -1,4 +1,4 @@
-//! Audio playback through librespot's Player + SoftMixer + Truffle's own rodio output.
+//! Audio playback through librespot's Player + SoftMixer + Coda's own rodio output.
 //!
 //! The engine only plays what it is told; the queue and "what plays next" live in the controller.
 //!
@@ -28,7 +28,7 @@
 //!
 //! ## Sound source
 //!
-//! With the YouTube sound source a slot holds Truffle's own player instead of librespot's (see
+//! With the YouTube sound source a slot holds Coda's own player instead of librespot's (see
 //! `pcm`): the song Spotify names is found on YouTube, fetched whole, decoded (see `m4a`) and
 //! played through the same output. It reports librespot's events, so all of the above works for
 //! it unchanged. It needs each song's details first ([`Engine::hint`]).
@@ -150,7 +150,7 @@ impl Engine {
             volume_ctrl: VolumeCtrl::Linear,
             ..MixerConfig::default()
         })
-        .map_err(|e| anyhow!("Truffle couldn't set up its volume control: {e}"))?;
+        .map_err(|e| anyhow!("coda couldn't set up its volume control: {e}"))?;
         mixer.set_volume(volume_to_mixer(settings.volume));
 
         let eq = Arc::new(EqControl::new(&settings.equalizer));
@@ -525,7 +525,7 @@ fn drop_players_in_background(players: Vec<SlotPlayer>) {
         return;
     }
     let spawned = std::thread::Builder::new()
-        .name("truffle-player-shutdown".into())
+        .name("coda-player-shutdown".into())
         .spawn(move || drop(players));
     if let Err(e) = spawned {
         log::warn!("could not shut the player down in the background: {e}");
@@ -540,7 +540,7 @@ struct PlayerParts {
     pcm: Arc<PcmEnv>,
 }
 
-/// Create a player of `source`'s kind for `slot`, with Truffle's output wired to the slot's fades
+/// Create a player of `source`'s kind for `slot`, with Coda's output wired to the slot's fades
 /// and problems.
 fn spawn_player(parts: &PlayerParts, source: SoundSource, session: Session, index: usize, slot: &mut Slot) -> NewStream {
     let sink = output::SinkParts { problem: slot.problem.clone(), gain: slot.gain.clone(), eq: parts.eq.clone() };
@@ -550,7 +550,7 @@ fn spawn_player(parts: &PlayerParts, source: SoundSource, session: Session, inde
                 parts.config.clone(),
                 session,
                 parts.mixer.get_soft_volume(),
-                move || Box::new(output::TruffleSink::new(sink)) as Box<dyn Sink>,
+                move || Box::new(output::CodaSink::new(sink)) as Box<dyn Sink>,
             );
             let events = player.get_player_event_channel();
             (SlotPlayer::Spotify(player), events)
@@ -572,7 +572,7 @@ fn spawn_player(parts: &PlayerParts, source: SoundSource, session: Session, inde
 // ---------------------------------------------------------------------------------------------
 // Player slots and crossfades
 
-/// A slot's player: librespot's (Spotify plays the song) or Truffle's own (decoded YouTube audio).
+/// A slot's player: librespot's (Spotify plays the song) or Coda's own (decoded YouTube audio).
 enum SlotPlayer {
     Spotify(Arc<Player>),
     Pcm(PcmPlayer),
@@ -903,7 +903,7 @@ fn parse_playable_uri(uri: &str) -> Result<SpotifyUri> {
         .map_err(|_| anyhow!("\"{trimmed}\" isn't a valid Spotify track link."))?;
     match parsed {
         SpotifyUri::Track { .. } | SpotifyUri::Episode { .. } => Ok(parsed),
-        SpotifyUri::Local { .. } => bail!("Local files can't be played in Truffle."),
+        SpotifyUri::Local { .. } => bail!("Local files can't be played in coda."),
         other => bail!(
             "Only songs and podcast episodes can be played (this is a {} link).",
             other.item_type()
@@ -1090,7 +1090,7 @@ mod tests {
             gain: Arc::new(OutputGain::new(Arc::new(GainControl::new(1.0)))),
             eq: Arc::new(EqControl::new(&EqSettings::default())),
         };
-        let mut sink = output::TruffleSink::new(parts);
+        let mut sink = output::CodaSink::new(parts);
         sink.start().expect("start never fails");
         if lock(&problem).is_some() {
             // No device on this machine: explained, not a panic or a failed start.

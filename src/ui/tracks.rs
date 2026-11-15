@@ -22,7 +22,7 @@ use super::fin;
 use super::kit;
 use super::theme::{Palette, bold};
 use super::util::{clean_description, fmt_song_count, fmt_thousands, mix};
-use super::{EditDetails, MiddleTab, TruffleApp};
+use super::{EditDetails, MiddleTab, CodaApp};
 use crate::model::{Command, Source, TrackInfo};
 use crate::text::{fold, push_fold};
 
@@ -510,7 +510,7 @@ pub(super) fn liked_color(p: &Palette) -> Color32 {
     mix(p.accent, Color32::from_rgb(70, 40, 160), 0.45)
 }
 
-impl TruffleApp {
+impl CodaApp {
     fn header_info(&self, source: &Source) -> HeaderInfo {
         match source {
             Source::Mix(id) if self.mixes.iter().all(|m| m.id != *id) && id.starts_with(crate::library::MIX_ARTIST) => {
@@ -533,7 +533,7 @@ impl TruffleApp {
             Source::Mix(id) => {
                 let m = self.mixes.iter().find(|m| m.id == *id);
                 HeaderInfo {
-                    kind: "Truffle mix",
+                    kind: "coda mix",
                     title: m.map_or_else(|| "Mix".to_owned(), |m| m.name.clone()),
                     owner: m.map(|m| m.description.clone()).unwrap_or_default(),
                     image_url: m.and_then(|m| m.image.clone()),

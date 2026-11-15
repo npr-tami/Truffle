@@ -1,8 +1,8 @@
-//! A test aid: with `truffle-selftest.request` beside truffle.exe ("search" or "edit"), Truffle
+//! A test aid: with `coda-selftest.request` beside coda.exe ("search" or "edit"), Coda
 //! checks search through the session and, for "edit", every playlist change on a throwaway
-//! playlist it makes itself ("Truffle test"), then deletes it. It never touches any other playlist:
+//! playlist it makes itself ("Coda test"), then deletes it. It never touches any other playlist:
 //! every change goes to the uri made in this run, and it stops before starting if a playlist with
-//! that name already exists. The report goes to `truffle-selftest.txt` and the log.
+//! that name already exists. The report goes to `coda-selftest.txt` and the log.
 
 use std::fmt::Write as _;
 
@@ -10,7 +10,7 @@ use librespot_core::SpotifyId;
 
 use super::{Added, Library, convert, fetch};
 
-pub const TEST_NAME: &str = "Truffle test";
+pub const TEST_NAME: &str = "coda test";
 
 struct Report(String, bool);
 
@@ -155,7 +155,7 @@ pub async fn run(lib: Library, writes: bool, taken: Vec<String>) -> String {
         }
     };
     if names.iter().any(|n| n.starts_with(TEST_NAME)) {
-        r.check("start", false, "a playlist named \"Truffle test\" already exists; nothing was changed");
+        r.check("start", false, "a playlist named \"coda test\" already exists; nothing was changed");
         return finish(r);
     }
     if songs.len() < 4 {
@@ -227,7 +227,7 @@ pub async fn run(lib: Library, writes: bool, taken: Vec<String>) -> String {
     r.check("add new", matches!(step, Ok(Added::Songs(1))) && now == [b.clone(), c.clone(), d.clone()], format!("{step:?} -> {} songs", now.len()));
 
     // 4. A cover: a plain colour picture.
-    let path = lib.inner.paths.cache.join("truffle-selftest-cover.jpg");
+    let path = lib.inner.paths.cache.join("coda-selftest-cover.jpg");
     let picture = image::RgbImage::from_pixel(640, 640, image::Rgb([232, 80, 106]));
     match picture.save_with_format(&path, image::ImageFormat::Jpeg) {
         Ok(()) => {

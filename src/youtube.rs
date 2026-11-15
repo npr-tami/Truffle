@@ -1,7 +1,7 @@
 //! YouTube as a sound source: the song Spotify names, found on YouTube and fetched as AAC audio
 //! (m4a, format 140) for the engine to play. The library, likes and search stay on Spotify.
 //!
-//! Finding and fetching go through yt-dlp (a separate program: beside truffle.exe, in Truffle's
+//! Finding and fetching go through yt-dlp (a separate program: beside coda.exe, in Coda's
 //! data folder, on PATH, or in the user's Downloads), which needs a JavaScript runtime (Node, Deno,
 //! Bun or QuickJS) to read YouTube's player. Matching: a YouTube search for "artists - title",
 //! scored by length (within a few seconds of Spotify's), title and artist words, official
@@ -9,7 +9,7 @@
 //! doesn't have. A match is remembered per Spotify song (and a user's own pick wins), in memory
 //! and in `youtube-matches.json`.
 //!
-//! yt-dlp only finds the video and the address of its audio file; Truffle downloads the file
+//! yt-dlp only finds the video and the address of its audio file; Coda downloads the file
 //! itself in pieces, which is several times faster than letting yt-dlp do it. The address comes
 //! from YouTube's visionOS client first: it gets no ad, so the address works at once.
 //!
@@ -64,7 +64,7 @@ pub struct Audio {
     pub duration_ms: Option<u32>,
 }
 
-const NO_YTDLP: &str = "YouTube mode needs yt-dlp. Put yt-dlp.exe beside truffle.exe.";
+const NO_YTDLP: &str = "YouTube mode needs yt-dlp. Put yt-dlp.exe beside coda.exe.";
 const NO_JS: &str = "yt-dlp needs Node.js or Deno to read YouTube.";
 const NOT_FOUND: &str = "Couldn't find this song on YouTube.";
 const SEARCH_FAILED: &str = "Couldn't search YouTube.";
@@ -161,7 +161,7 @@ pub struct YouTube {
 struct Inner {
     /// Where matches are remembered (`youtube-matches.json`).
     cache_dir: PathBuf,
-    /// The folder truffle.exe is in (yt-dlp may sit beside it).
+    /// The folder coda.exe is in (yt-dlp may sit beside it).
     exe_dir: Option<PathBuf>,
     /// The last program lookup, and when it ran.
     tools: Mutex<Option<(Instant, std::result::Result<Tools, String>)>>,
@@ -1096,7 +1096,7 @@ impl DiskCache {
 
 /// Where the programs may be.
 struct Places {
-    /// Beside truffle.exe, then Truffle's data folder.
+    /// Beside coda.exe, then Coda's data folder.
     own: Vec<PathBuf>,
     /// The folders on PATH.
     path: Vec<PathBuf>,
@@ -1121,7 +1121,7 @@ impl Places {
     }
 }
 
-/// Truffle's data folder (`...\truffle`), the parent of its `cache` folder.
+/// Coda's data folder (`...\coda`), the parent of its `cache` folder.
 fn data_dir(cache_dir: &Path) -> Option<PathBuf> {
     cache_dir
         .ancestors()
@@ -2162,7 +2162,7 @@ mod tests {
         ranked.iter().find(|(_, fits)| *fits).map(|(c, _)| c.video_id.as_str())
     }
 
-    /// Test files go under `TRUFFLE_TEST_DIR`, else the temp folder.
+    /// Test files go under `CODA_TEST_DIR`, else the temp folder.
     fn test_dir(name: &str) -> PathBuf {
         let base = crate::config::test_root();
         let dir = base.join(format!("test-{name}-{}", std::process::id()));
@@ -2454,7 +2454,7 @@ mod tests {
 
     #[test]
     fn data_dir_is_the_parent_of_cache() {
-        let root = Path::new(r"C:\Users\u\AppData\Local\truffle");
+        let root = Path::new(r"C:\Users\u\AppData\Local\coda");
         assert_eq!(data_dir(&root.join("cache")), Some(root.to_path_buf()));
         assert_eq!(data_dir(&root.join("cache").join("youtube")), Some(root.to_path_buf()));
         assert_eq!(data_dir(Path::new(r"C:\elsewhere")), None);
@@ -2491,7 +2491,7 @@ mod tests {
         touch(path1.join(exe("node")));
         assert_eq!(find_tools(&places()).unwrap().js, Some(("node".to_owned(), path1.join(exe("node")))));
 
-        // yt-dlp: on PATH beats Downloads, the data folder beats PATH, beside truffle.exe beats all.
+        // yt-dlp: on PATH beats Downloads, the data folder beats PATH, beside coda.exe beats all.
         touch(path2.join(exe("yt-dlp")));
         assert_eq!(find_tools(&places()).unwrap().ytdlp, path2.join(exe("yt-dlp")));
         touch(data.join(exe("yt-dlp")));
@@ -3213,12 +3213,12 @@ mod tests {
     }
 
     /// Time from asking for a song to having its audio, for a few songs: never seen, match known,
-    /// cached. `TRUFFLE_BENCH` names the run; the report goes to `speed2` under `TRUFFLE_TEST_DIR`.
+    /// cached. `CODA_BENCH` names the run; the report goes to `speed2` under `CODA_TEST_DIR`.
     #[tokio::test]
     #[ignore = "runs yt-dlp and downloads from YouTube"]
     async fn youtube_live_speed() {
         let _ = env_logger::builder().is_test(true).filter_level(log::LevelFilter::Info).try_init();
-        let label = std::env::var("TRUFFLE_BENCH").unwrap_or_else(|_| "run".to_owned());
+        let label = std::env::var("CODA_BENCH").unwrap_or_else(|_| "run".to_owned());
         let base = crate::config::test_root().join("speed2");
         let dir = base.join(format!("bench-{label}"));
         let _ = std::fs::remove_dir_all(&dir);

@@ -24,7 +24,7 @@ impl Media {
         if hwnd == 0 {
             return Err("no window handle".to_owned());
         }
-        let config = PlatformConfig { display_name: "Truffle", dbus_name: "truffle", hwnd: Some(hwnd as *mut c_void) };
+        let config = PlatformConfig { display_name: "coda", dbus_name: "coda", hwnd: Some(hwnd as *mut c_void) };
         let mut controls = MediaControls::new(config).map_err(|e| e.to_string())?;
         let generation = GENERATION.load(Ordering::SeqCst);
         controls

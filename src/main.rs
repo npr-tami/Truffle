@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// `build.rs` uses it to make TRUFFLE_BUILD_DATE; compiled here only for its tests.
+// `build.rs` uses it to make CODA_BUILD_DATE; compiled here only for its tests.
 #[cfg(test)]
 mod build_date;
 mod canvas;
@@ -57,11 +57,11 @@ fn play_arg(mut args: impl Iterator<Item = String>) -> Option<String> {
     None
 }
 
-/// Release builds log to `%LOCALAPPDATA%\truffle\logs\truffle.log` (the previous run's log is kept
-/// as `truffle.previous.log`), since a windowed app has no console. Debug builds log to stderr.
+/// Release builds log to `%LOCALAPPDATA%\coda\logs\coda.log` (the previous run's log is kept
+/// as `coda.previous.log`), since a windowed app has no console. Debug builds log to stderr.
 /// Called only by the instance that will run, so a second launch never touches the live log.
 fn init_logging() {
-    let mut builder = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn,truffle=info"));
+    let mut builder = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn,coda=info"));
     if !cfg!(debug_assertions)
         && let Some(file) = open_log_file()
     {
@@ -74,7 +74,7 @@ fn open_log_file() -> Option<std::fs::File> {
     let log = config::log_file()?;
     let dir = log.parent()?;
     std::fs::create_dir_all(dir).ok()?;
-    let _ = std::fs::rename(&log, dir.join("truffle.previous.log"));
+    let _ = std::fs::rename(&log, dir.join("coda.previous.log"));
     std::fs::File::create(log).ok()
 }
 
@@ -88,13 +88,24 @@ fn main() -> Result<()> {
         update::set_resume();
     }
 
-    // One Truffle per Windows session. A second launch brings the running one to the front
+    // One Coda per Windows session. A second launch brings the running one to the front
     // (unless it is the start-with-Windows launch, which just leaves quietly).
     let Some(mut instance) = single_instance::Instance::acquire(!minimized_arg) else {
         return Ok(());
     };
+    // Before anything makes Coda's data folders (the log file is in one): Truffle's data comes over.
+    let migration = config::migrate_from_old_name();
     init_logging();
-    log::info!("Truffle {} starting", env!("CARGO_PKG_VERSION"));
+    log::info!("coda {} starting", env!("CARGO_PKG_VERSION"));
+    for (from, to) in &migration.copied {
+        log::info!("copied the data of the app's old name from {} to {}", from.display(), to.display());
+    }
+    for failed in &migration.failed {
+        log::warn!("couldn't copy old data: {failed}");
+    }
+    if let Err(e) = platform::migrate_old_start_entries() {
+        log::warn!("couldn't move the old start entries: {e:#}");
+    }
 
     let paths = Paths::new()?;
     log::info!("data in {} (settings, logins) and {} (caches)", paths.config.display(), paths.cache.display());
@@ -114,7 +125,7 @@ fn main() -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
-        .thread_name("truffle-worker")
+        .thread_name("coda-worker")
         .build()?;
 
     let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel::<Command>();
@@ -125,9 +136,9 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(ui::WINDOW_TITLE)
-            .with_app_id("truffle")
+            .with_app_id("coda")
             .with_icon(Arc::new(icon::window_icon(icon_style)))
-            // Truffle draws its own title bar (the Final design's chrome sign). Made without Windows'
+            // Coda draws its own title bar (the Final design's chrome sign). Made without Windows'
             // from the start: taking it off later leaves the frame's old place until the window moves.
             .with_decorations(false)
             .with_inner_size(window_size)
@@ -142,13 +153,13 @@ fn main() -> Result<()> {
     let task_slot = &mut controller_task;
     let instance_slot = &mut instance;
     let result = eframe::run_native(
-        "Truffle",
+        "coda",
         options,
         Box::new(move |cc| {
             // The window exists (still hidden) but no frame has been painted yet.
             match win32::find_own_window(ui::WINDOW_TITLE) {
                 Some(hwnd) => {
-                    // Back where it was when Truffle closed (if that screen is still there).
+                    // Back where it was when Coda closed (if that screen is still there).
                     let place = settings.lock().unwrap_or_else(std::sync::PoisonError::into_inner).main_window_rect;
                     if let Some(rect) = place {
                         ui::restore_window_place(hwnd, rect);
@@ -163,7 +174,7 @@ fn main() -> Result<()> {
             instance_slot.listen(cc.egui_ctx.clone());
             let link = UiLink { events: event_tx, ctx: cc.egui_ctx.clone() };
             *task_slot = Some(handle.spawn(controller::run(paths.clone(), settings.clone(), cmd_rx, link)));
-            Ok(Box::new(ui::TruffleApp::new(cc, cmd_tx, event_rx, settings, paths, handle.clone())))
+            Ok(Box::new(ui::CodaApp::new(cc, cmd_tx, event_rx, settings, paths, handle.clone())))
         }),
     );
 
@@ -184,11 +195,11 @@ fn main() -> Result<()> {
     drop(instance);
 
     // An update was put in place: the new exe starts now that this one has saved and let go of
-    // the single-instance lock. On its own, so it outlives whatever started this Truffle.
+    // the single-instance lock. On its own, so it outlives whatever started this Coda.
     if let Some((exe, resume)) = update::take_restart() {
         match update::spawn_detached(&exe, resume) {
-            Ok(()) => log::info!("started the updated Truffle"),
-            Err(e) => log::warn!("could not start the updated Truffle: {e}"),
+            Ok(()) => log::info!("started the updated coda"),
+            Err(e) => log::warn!("could not start the updated coda: {e}"),
         }
     }
 
@@ -202,13 +213,13 @@ static ACTIVATION_REQUESTED: AtomicBool = AtomicBool::new(false);
 /// listener runs).
 static RELAUNCH_SHOWS_WINDOW: AtomicBool = AtomicBool::new(false);
 
-/// Whether opening Truffle again brings this window back, also from hidden. The UI hides the window
+/// Whether opening Coda again brings this window back, also from hidden. The UI hides the window
 /// on closing only when there is such a way back (this, or the tray icon).
 pub fn relaunch_shows_window() -> bool {
     RELAUNCH_SHOWS_WINDOW.load(Ordering::Relaxed)
 }
 
-/// True once after another launch asked Truffle to come to the front. The window has already
+/// True once after another launch asked Coda to come to the front. The window has already
 /// been asked to show, restore and focus itself by then; the UI uses this to sync its own state
 /// (to leave its "hidden in the tray" mode).
 pub fn take_activation_request() -> bool {
@@ -254,7 +265,7 @@ impl StartMode {
     }
 }
 
-/// One Truffle per Windows session.
+/// One Coda per Windows session.
 ///
 /// The first instance owns a named mutex for its whole lifetime and listens on a named event
 /// while its window exists. A later launch that finds the mutex taken signals the event (the
@@ -270,16 +281,16 @@ mod single_instance {
 
     #[cfg(debug_assertions)]
     const NAMES: Names = Names {
-        mutex: r"Local\Truffle-7d3f2a91-instance-dev",
-        activate: r"Local\Truffle-7d3f2a91-activate-dev",
+        mutex: r"Local\coda-7d3f2a91-instance-dev",
+        activate: r"Local\coda-7d3f2a91-activate-dev",
     };
     #[cfg(not(debug_assertions))]
     const NAMES: Names = Names {
-        mutex: r"Local\Truffle-7d3f2a91-instance",
-        activate: r"Local\Truffle-7d3f2a91-activate",
+        mutex: r"Local\coda-7d3f2a91-instance",
+        activate: r"Local\coda-7d3f2a91-activate",
     };
 
-    /// How long a new launch waits for a closing Truffle to finish saving and exit.
+    /// How long a new launch waits for a closing Coda to finish saving and exit.
     const WAIT_FOR_EXIT: Duration = Duration::from_secs(15);
 
     struct Names {
@@ -296,9 +307,9 @@ mod single_instance {
     }
 
     impl Instance {
-        /// `None`: another Truffle is running (and was asked to come to the front if
+        /// `None`: another Coda is running (and was asked to come to the front if
         /// `activate_existing`), so this process should exit. Never blocks start-up because of an
-        /// OS error: if the named objects can't be created, Truffle just runs without the check.
+        /// OS error: if the named objects can't be created, Coda just runs without the check.
         pub fn acquire(activate_existing: bool) -> Option<Self> {
             acquire_with(&NAMES, activate_existing, WAIT_FOR_EXIT)
         }
@@ -309,7 +320,7 @@ mod single_instance {
                 return;
             };
             let spawned = std::thread::Builder::new()
-                .name("truffle-activate".into())
+                .name("coda-activate".into())
                 .stack_size(256 * 1024)
                 .spawn(move || {
                     // `stop` first: if both are signalled, stopping wins.
@@ -386,14 +397,14 @@ mod single_instance {
         }
 
         // We created the event, so the other instance has stopped listening: it is shutting down.
-        log::info!("waiting for the previous Truffle to finish closing");
+        log::info!("waiting for the previous coda to finish closing");
         match win32::wait_one(mutex, wait_for_exit) {
             Wait::Signalled(_) | Wait::Abandoned => {
                 other.mutex = Some(mutex);
                 Some(other)
             }
             Wait::Timeout | Wait::Failed => {
-                log::warn!("the previous Truffle is still running after {wait_for_exit:?}");
+                log::warn!("the previous coda is still running after {wait_for_exit:?}");
                 if activate_existing {
                     // In case it did come back to life: let it show itself.
                     win32::allow_any_process_to_take_focus();
@@ -406,7 +417,7 @@ mod single_instance {
     }
 
     fn bring_to_front(ctx: &egui::Context) {
-        log::info!("another launch asked Truffle to come to the front");
+        log::info!("another launch asked coda to come to the front");
         crate::ACTIVATION_REQUESTED.store(true, Ordering::Relaxed);
         let root = egui::ViewportId::ROOT;
         ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Visible(true));
@@ -422,8 +433,8 @@ mod single_instance {
             // Leaked on purpose: tests need &'static names unique per test and process.
             let pid = std::process::id();
             Names {
-                mutex: Box::leak(format!(r"Local\Truffle-test-{tag}-{pid}-mutex").into_boxed_str()),
-                activate: Box::leak(format!(r"Local\Truffle-test-{tag}-{pid}-activate").into_boxed_str()),
+                mutex: Box::leak(format!(r"Local\coda-test-{tag}-{pid}-mutex").into_boxed_str()),
+                activate: Box::leak(format!(r"Local\coda-test-{tag}-{pid}-activate").into_boxed_str()),
             }
         }
 
@@ -472,7 +483,7 @@ mod single_instance {
     }
 }
 
-/// The few Win32 calls Truffle's start-up needs (declared here so they don't depend on which
+/// The few Win32 calls Coda's start-up needs (declared here so they don't depend on which
 /// `windows-sys` features other modules enable).
 #[cfg(windows)]
 mod win32 {

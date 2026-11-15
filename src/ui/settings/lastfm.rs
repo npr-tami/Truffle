@@ -9,7 +9,7 @@ use egui::{Grid, Margin, RichText, TextEdit, Ui};
 
 use super::{note, step};
 use crate::model::Command;
-use crate::ui::TruffleApp;
+use crate::ui::CodaApp;
 use crate::ui::theme::text_field;
 use crate::ui::util::{fmt_thousands, open_in_browser};
 
@@ -118,7 +118,7 @@ fn they_are(n: usize) -> &'static str {
     if n == 1 { "It is" } else { "They are" }
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn lastfm_section(&mut self, ui: &mut Ui) {
         if self.lastfm.connecting {
             self.lastfm_setup_ui(ui);
@@ -150,7 +150,7 @@ impl TruffleApp {
             }
         });
 
-        let enabled = self.lastfm_enabled_switch(ui, "Send the songs you play in Truffle to your Last.fm profile");
+        let enabled = self.lastfm_enabled_switch(ui, "Send the songs you play in coda to your Last.fm profile");
         if !enabled {
             note(ui, "Paused: songs you play now aren't sent to Last.fm.", p.text_weak);
         }
@@ -181,7 +181,7 @@ impl TruffleApp {
         ui.add_space(4.0);
 
         let enabled =
-            self.lastfm_enabled_switch(ui, "While this is on, songs you play are kept and sent once Last.fm accepts Truffle again");
+            self.lastfm_enabled_switch(ui, "While this is on, songs you play are kept and sent once Last.fm accepts coda again");
         if !enabled {
             note(ui, "Paused: songs you play now aren't kept for Last.fm.", p.text_weak);
         }
@@ -215,7 +215,7 @@ impl TruffleApp {
                 }
                 ui.label("and log in.");
             });
-            note_text(ui, "Name it \"Truffle\", leave the rest empty and submit.", p.text);
+            note_text(ui, "Name it \"coda\", leave the rest empty and submit.", p.text);
         });
         step(ui, 2, p.accent_ink, |ui| {
             note_text(ui, "Paste the API key and Shared secret below.", p.text);
@@ -231,7 +231,7 @@ impl TruffleApp {
         if self.lastfm.username.is_some() {
             // Connecting again while stopped: the plays wait for this connection.
             if let Some(text) = pending_text(self.lastfm.pending) {
-                note(ui, &format!("{text}. They are sent once Truffle is connected again."), p.text_weak);
+                note(ui, &format!("{text}. They are sent once coda is connected again."), p.text_weak);
             }
         } else if let Some(text) = waiting_text(self.lastfm.pending, self.lastfm.held_for.as_deref()) {
             note(ui, &text, p.text_weak);
@@ -318,7 +318,7 @@ impl TruffleApp {
         }
         ui.add_space(6.0);
         let clicked = super::super::kit::button_enabled(ui, &p, label, super::super::kit::Kind::Primary, check.ready)
-            .on_hover_text("Opens your browser to approve Truffle on Last.fm")
+            .on_hover_text("Opens your browser to approve coda on Last.fm")
             .on_disabled_hover_text("Paste your API key and Shared secret first")
             .clicked();
         if check.ready && (clicked || entered) {

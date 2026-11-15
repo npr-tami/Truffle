@@ -485,7 +485,7 @@ pub fn gradient_rect(painter: &egui::Painter, rect: Rect, radius: u8, top: Color
     #[derive(Clone, Default)]
     struct Cache(std::sync::Arc<std::sync::Mutex<Gradients>>);
     let ctx = painter.ctx();
-    let cache = ctx.data_mut(|d| d.get_temp_mut_or_default::<Cache>(Id::new("truffle-gradients")).clone());
+    let cache = ctx.data_mut(|d| d.get_temp_mut_or_default::<Cache>(Id::new("coda-gradients")).clone());
     let key = (top.to_array(), bottom.to_array());
     let tex = {
         let mut map = cache.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

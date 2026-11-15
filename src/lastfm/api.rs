@@ -1,5 +1,5 @@
 //! Last.fm web service calls: request signing, transport, error classes, and the four methods
-//! Truffle uses (`auth.getToken`, `auth.getSession`, `track.updateNowPlaying`, `track.scrobble`).
+//! Coda uses (`auth.getToken`, `auth.getSession`, `track.updateNowPlaying`, `track.scrobble`).
 //! See https://www.last.fm/api for the calls and their errors.
 //!
 //! Every call is a signed `POST` with a form body and `format=json`. The shared secret and the
@@ -22,7 +22,7 @@ pub const AUTH_PAGE: &str = "https://www.last.fm/api/auth/";
 pub const MAX_BATCH: usize = 50;
 
 /// "Please use an identifiable User-Agent header on all requests" (last.fm/api/intro).
-const USER_AGENT: &str = concat!("Truffle/", env!("CARGO_PKG_VERSION"), " (Windows; personal scrobbler)");
+const USER_AGENT: &str = concat!("coda/", env!("CARGO_PKG_VERSION"), " (Windows; personal scrobbler)");
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -148,7 +148,7 @@ pub fn is_valid_key(s: &str) -> bool {
     s.len() == 32 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-/// The page where the user approves Truffle for request token `token`.
+/// The page where the user approves Coda for request token `token`.
 pub fn auth_url(api_key: &str, token: &str) -> String {
     match url::Url::parse_with_params(AUTH_PAGE, &[("api_key", api_key), ("token", token)]) {
         Ok(url) => url.into(),
@@ -221,7 +221,7 @@ pub fn item_results(v: &Value, n: usize) -> Vec<ItemResult> {
     results
 }
 
-/// The HTTP side: one client with Truffle's User-Agent and timeouts.
+/// The HTTP side: one client with Coda's User-Agent and timeouts.
 #[derive(Clone)]
 pub struct Client {
     http: reqwest::Client,

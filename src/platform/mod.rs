@@ -33,7 +33,7 @@ use crate::model::{Command, PlaybackState};
 pub enum PlatformAction {
     /// Forward to the controller (play/pause/next/previous/seek from media keys, overlay or tray).
     Command(Command),
-    /// Bring the main window back (tray click / tray menu "Show Truffle").
+    /// Bring the main window back (tray click / tray menu "Show Coda").
     ShowWindow,
     /// Switch between the full window and the mini player.
     ToggleMiniPlayer,
@@ -97,9 +97,9 @@ impl Applied {
     }
 }
 
-/// Truffle's own Discord application (its name and picture show on the status). An application
+/// Coda's own Discord application (its name and picture show on the status). An application
 /// ID is public; users only set their own to show a different name.
-pub const TRUFFLE_DISCORD_APP_ID: &str = "1558921242042568854";
+pub const CODA_DISCORD_APP_ID: &str = "1558921242042568854";
 
 pub struct Platform {
     owner: u64,
@@ -268,7 +268,7 @@ impl Platform {
         }
     }
 
-    /// `app_id`: the user's own Discord application, if they set one; else Truffle's.
+    /// `app_id`: the user's own Discord application, if they set one; else Coda's.
     fn apply_discord(&mut self, enabled: bool, app_id: Option<&str>) {
         if !enabled {
             if matches!(self.discord, DiscordSlot::Running(_)) {
@@ -277,7 +277,7 @@ impl Platform {
             self.discord = DiscordSlot::Off;
             return;
         }
-        let app_id = app_id.map(str::trim).filter(|id| !id.is_empty()).unwrap_or(TRUFFLE_DISCORD_APP_ID);
+        let app_id = app_id.map(str::trim).filter(|id| !id.is_empty()).unwrap_or(CODA_DISCORD_APP_ID);
         let id = match validate_app_id(app_id) {
             Ok(id) => id,
             Err(state) => {
@@ -364,10 +364,15 @@ fn signed(direction: SeekDirection, amount: i64) -> i64 {
     }
 }
 
-/// Add/remove Truffle from HKCU\Software\Microsoft\Windows\CurrentVersion\Run (starts with
+/// Add/remove Coda from HKCU\Software\Microsoft\Windows\CurrentVersion\Run (starts with
 /// `--minimized`, which the app treats as "start hidden in the tray").
 pub fn set_start_with_windows(enabled: bool) -> Result<()> {
     startup::set_start_with_windows(enabled)
+}
+
+/// Moves the app's old name's start-with-Windows entry and Start-menu shortcut to Coda's.
+pub fn migrate_old_start_entries() -> Result<()> {
+    startup::migrate_old_entries()
 }
 
 /// Whether the Run entry currently exists and points at this exe.

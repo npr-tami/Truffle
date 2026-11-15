@@ -71,7 +71,7 @@ impl ScrobbleQueue {
                     log::warn!("could not read {}: {e}", path.display());
                     return Self::set_aside(
                         path,
-                        "Truffle couldn't read its list of unsent scrobbles. New plays are still scrobbled.",
+                        "coda couldn't read its list of unsent scrobbles. New plays are still scrobbled.",
                     );
                 }
             }
@@ -86,7 +86,7 @@ impl ScrobbleQueue {
             }
             Err(e) => {
                 log::warn!("{} can't be read ({e}); setting it aside", path.display());
-                Self::set_aside(path, "Truffle's list of unsent scrobbles was damaged, so those scrobbles can't be sent.")
+                Self::set_aside(path, "coda's list of unsent scrobbles was damaged, so those scrobbles can't be sent.")
             }
         }
     }
@@ -105,7 +105,7 @@ impl ScrobbleQueue {
             None => {
                 // Probably still held by another program.
                 queue.unread = true;
-                note.push_str(" The file is kept, and Truffle tries to read it again before saving new plays.");
+                note.push_str(" The file is kept, and coda tries to read it again before saving new plays.");
             }
         }
         (queue, Some(note))
@@ -139,7 +139,7 @@ impl ScrobbleQueue {
                 }
                 log::info!("read {} after all: {found} unsent scrobble(s) kept", path.display());
                 self.note = Some(format!(
-                    "Truffle could read its list of unsent scrobbles after all, so {found} {} kept.",
+                    "coda could read its list of unsent scrobbles after all, so {found} {} kept.",
                     if found == 1 { "play is" } else { "plays are" }
                 ));
             }
@@ -150,7 +150,7 @@ impl ScrobbleQueue {
                 let name = kept.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 log::warn!("{} still can't be read ({e}); set aside as {name}", path.display());
                 self.note = Some(format!(
-                    "Truffle couldn't read its earlier list of unsent scrobbles, so those scrobbles can't be sent. \
+                    "coda couldn't read its earlier list of unsent scrobbles, so those scrobbles can't be sent. \
                      The file was kept as {name}."
                 ));
             }
@@ -225,7 +225,7 @@ impl ScrobbleQueue {
         self.relabel(user, |owner| !same_user(owner, user))
     }
 
-    /// Record the scrobbles of an unknown account (queued by an older Truffle) as `user`'s.
+    /// Record the scrobbles of an unknown account (queued by an older Coda) as `user`'s.
     pub fn adopt_unknown(&mut self, user: &str) -> usize {
         self.relabel(user, str::is_empty)
     }
@@ -297,7 +297,7 @@ mod tests {
     }
 
     fn temp_file(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("truffle-lastfm-queue-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-lastfm-queue-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("lastfm_queue.json")

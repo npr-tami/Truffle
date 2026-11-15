@@ -16,7 +16,7 @@ use super::theme::{Palette, bold, heavy, medium, regular};
 use super::tracks::one_line;
 use super::util::fmt_thousands;
 use super::wide;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use std::sync::Arc;
 use crate::model::{CollectionItem, Command, ListenHow, Source};
 
@@ -45,7 +45,7 @@ fn list_min(page_w: f32, split: bool, bigger: bool) -> f32 {
     if bigger { wide::grow(page_w, 132.0, big + 36.0) } else { wide::grow(page_w, 96.0, big) }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// A user's profile: one's own, or someone else's.
     pub(super) fn show_user(&mut self, username: &str) {
         let me = self.profile.as_ref().is_some_and(|p| p.username.eq_ignore_ascii_case(username));
@@ -701,7 +701,7 @@ fn follow_counts(ui: &Ui, at: egui::Pos2, followers: Option<u32>, following: Opt
 /// Round cards (people and artists) filling the width; a person opens their profile, an artist
 /// their page. Returns the bottom.
 #[allow(clippy::too_many_arguments)]
-fn people_grid(app: &mut TruffleApp, ui: &mut Ui, left: f32, w: f32, top: f32, list: &[crate::model::Card], open: &mut Option<Source>, user_to: &mut Option<String>) -> f32 {
+fn people_grid(app: &mut CodaApp, ui: &mut Ui, left: f32, w: f32, top: f32, list: &[crate::model::Card], open: &mut Option<Source>, user_to: &mut Option<String>) -> f32 {
     let p = app.palette;
     let (cols, size) = wide::row_fit(w, 100.0, 26.0);
     let row_h = size + 7.0 + 15.0 + 14.0 + 16.0;

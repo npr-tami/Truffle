@@ -103,7 +103,7 @@ impl Controller {
                 }
             };
             send(Event::Collection(Arc::new(c.clone())));
-            // Truffle's mixes: the fixed ones and the three most liked artists'.
+            // Coda's mixes: the fixed ones and the three most liked artists'.
             let mut by_songs: Vec<&crate::model::CollectionItem> = c.artists.iter().collect();
             by_songs.sort_by_key(|a| std::cmp::Reverse(a.songs));
             let artists: Vec<(String, String)> = by_songs.iter().take(3).map(|a| (a.uri.clone(), a.name.clone())).collect();
@@ -245,7 +245,7 @@ impl Controller {
         });
     }
 
-    /// "Your Truffle" on Settings > About: the play counts added up, and the most played song's
+    /// "Your Coda" on Settings > About: the play counts added up, and the most played song's
     /// name and cover from a list already loaded (or from the last time). Not known: the numbers go
     /// at once, and the song follows once Spotify has described it.
     pub(super) fn cmd_play_stats(&mut self) {
@@ -315,7 +315,7 @@ impl Controller {
         });
     }
 
-    /// Which of the user's playlists hold every one of `uris`, from the lists Truffle has in memory or on
+    /// Which of the user's playlists hold every one of `uris`, from the lists Coda has in memory or on
     /// disk (no network); the Add to playlist menu marks them Added. A playlist never opened is unknown,
     /// so it isn't marked.
     pub(super) fn cmd_held_by(&mut self, uris: Vec<String>) {
@@ -609,7 +609,7 @@ mod tests {
 
     /// A controller with no session writing into a temp folder, and what it sends the UI.
     fn controller(name: &str) -> (Controller, Receiver<Event>) {
-        let dir = std::env::temp_dir().join(format!("truffle-browse-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-browse-{name}-{}", std::process::id()));
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let (events, rx) = std::sync::mpsc::channel();
         let ui = UiLink { events, ctx: egui::Context::default() };
@@ -658,7 +658,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_artists_likes_open_at_once_from_the_liked_songs_truffle_has() {
+    async fn an_artists_likes_open_at_once_from_the_liked_songs_coda_has() {
         // Reading Liked Songs from Spotify again can take minutes (or time out); the page must
         // not wait for it. This session never connects, so nothing comes from Spotify.
         let (mut c, events) = controller("artist-likes");
@@ -681,7 +681,7 @@ mod tests {
         done(c);
     }
 
-    /// The most played song in the next "Your Truffle" sent, with its details if they came along.
+    /// The most played song in the next "Your Coda" sent, with its details if they came along.
     fn next_top(events: &Receiver<Event>) -> (String, Option<String>) {
         match events.try_recv() {
             Ok(Event::PlayStats(stats)) => {

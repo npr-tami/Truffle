@@ -14,7 +14,7 @@ use super::theme::{bold, heavy, medium, regular};
 use super::tracks::one_line;
 use super::util::fmt_thousands;
 use super::wide;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::{Collection, CollectionItem, Command, Source};
 
 /// What Albums and Artists are, said when hovering where they open.
@@ -101,7 +101,7 @@ pub(super) fn sorted(items: &[CollectionItem], sort: Sort, reverse: bool) -> Vec
     v
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Shows the Albums or Artists page, asking for its contents the first time.
     pub(super) fn show_collection(&mut self, tab: MiddleTab) {
         self.middle_tab = tab;
@@ -118,7 +118,7 @@ impl TruffleApp {
         let k = usize::from(artists);
         let mw = ui.max_rect().width();
         let collection = self.collection.clone().unwrap_or_else(|| Arc::new(Collection::default()));
-        // The Artists page has All and Following once Truffle knows who is followed.
+        // The Artists page has All and Following once Coda knows who is followed.
         let following = self.following.clone().filter(|_| artists);
         let only_followed = following.is_some() && self.coll.following;
         let followed: Vec<CollectionItem> = match &following {

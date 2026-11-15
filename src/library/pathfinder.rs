@@ -1,5 +1,5 @@
 //! Search through Pathfinder, the web player's GraphQL service (the session's own login: no Web
-//! API key): the persisted queries and their hashes, and the answers turned into Truffle's cards.
+//! API key): the persisted queries and their hashes, and the answers turned into Coda's cards.
 //! Hashes are retired every few months; the next one is tried then (see `fetch::pathfinder`).
 
 use serde_json::{Value, json};
@@ -279,7 +279,7 @@ mod tests {
             // No type said: still a person. Emoji and very long names stay whole.
             { "data": { "uri": "spotify:user:b", "displayName": "🔥🔥" } },
             { "data": { "__typename": "User", "uri": "spotify:user:c", "displayName": long } },
-            // Not a person, or not one Truffle can open: skipped.
+            // Not a person, or not one Coda can open: skipped.
             { "data": { "__typename": "NotFound", "uri": "spotify:user:gone" } },
             { "data": { "__typename": "User", "uri": "spotify:artist:x", "displayName": "An artist" } },
             { "data": { "__typename": "User", "uri": "spotify:user:", "displayName": "Nobody" } },

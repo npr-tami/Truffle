@@ -3,7 +3,7 @@
 //! and Alt+Right and the mouse's side buttons go back and forth through them.
 
 use super::search::source_of;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::Source;
 
 /// How many pages back are kept.
@@ -34,7 +34,7 @@ pub(super) struct Nav {
     last: Option<Place>,
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// The page shown now.
     pub(super) fn place(&self) -> Place {
         match self.middle_tab {

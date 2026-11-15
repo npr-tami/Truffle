@@ -99,11 +99,11 @@ pub(super) fn backoff(attempt: u32) -> Duration {
 }
 
 pub(super) fn network_error() -> anyhow::Error {
-    anyhow!("Truffle couldn't reach Spotify. Check your internet connection and try again.")
+    anyhow!("coda couldn't reach Spotify. Check your internet connection and try again.")
 }
 
 fn network_error_for(what: &str) -> anyhow::Error {
-    anyhow!("Couldn't {what}: Truffle couldn't reach Spotify. Check your internet connection and try again.")
+    anyhow!("Couldn't {what}: coda couldn't reach Spotify. Check your internet connection and try again.")
 }
 
 /// "about 3 minutes", "about 2 hours", ...
@@ -156,7 +156,7 @@ pub(super) fn describe_failure(status: StatusCode, body: &[u8], what: &str) -> a
     let (message, _) = parse_api_error(body);
     let lower = message.to_ascii_lowercase();
     let reason = match status.as_u16() {
-        401 => "Spotify no longer accepts Truffle's sign-in. Open Settings and click Connect to sign in again."
+        401 => "Spotify no longer accepts coda's sign-in. Open Settings and click Connect to sign in again."
             .to_owned(),
         403 if lower.contains("not registered") || lower.contains("may not be registered") => {
             "your Spotify account isn't on your developer app's user list. On developer.spotify.com open \
@@ -164,7 +164,7 @@ pub(super) fn describe_failure(status: StatusCode, body: &[u8], what: &str) -> a
                 .to_owned()
         }
         403 if lower.contains("scope") => {
-            "Truffle's sign-in is missing a permission. Open Settings, disconnect playlist editing and click \
+            "coda's sign-in is missing a permission. Open Settings, disconnect playlist editing and click \
              Connect to sign in again."
                 .to_owned()
         }
@@ -210,7 +210,7 @@ impl WebApi {
             let permit = PERMITS
                 .acquire()
                 .await
-                .map_err(|_| anyhow!("Couldn't {what}: Truffle is shutting down."))?;
+                .map_err(|_| anyhow!("Couldn't {what}: coda is shutting down."))?;
 
             let mut request = self.inner.http.request(method.clone(), &url).bearer_auth(&token);
             if !query.is_empty() {
@@ -269,7 +269,7 @@ impl WebApi {
                     // Rejected again with a freshly refreshed token: the sign-in itself is no good.
                     log::warn!("{method} {path}: 401 after a token refresh");
                     return Err(ReconnectRequired::new(&format!(
-                        "Couldn't {what}: Spotify no longer accepts Truffle's sign-in for playlist editing. \
+                        "Couldn't {what}: Spotify no longer accepts coda's sign-in for playlist editing. \
                          Open Settings and click Connect to sign in again."
                     ))
                     .into());
@@ -292,7 +292,7 @@ impl WebApi {
                     block_for(wait);
                     if wait > MAX_RATE_WAIT {
                         return Err(anyhow!(
-                            "Couldn't {what}: Spotify asked Truffle to slow down. Please try again in {}.",
+                            "Couldn't {what}: Spotify asked coda to slow down. Please try again in {}.",
                             friendly_duration(wait)
                         ));
                     }
@@ -330,7 +330,7 @@ impl WebApi {
         let bytes = self.call(Method::GET, path, query, &ReqBody::Empty, what).await?;
         serde_json::from_slice(&bytes).map_err(|e| {
             log::warn!("GET {path}: unexpected JSON: {e}");
-            anyhow!("Couldn't {what}: Spotify sent data Truffle didn't understand.")
+            anyhow!("Couldn't {what}: Spotify sent data coda didn't understand.")
         })
     }
 }

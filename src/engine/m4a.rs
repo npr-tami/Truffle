@@ -1,5 +1,5 @@
 //! Decodes a whole m4a file (AAC, as YouTube serves it) from memory with symphonia, into the
-//! interleaved stereo f64 packets Truffle's output plays.
+//! interleaved stereo f64 packets Coda's output plays.
 //!
 //! - The file's own length is not used: YouTube's (fragmented) files often say 0. The caller
 //!   passes the length it knows (YouTube's, or else Spotify's).
@@ -264,7 +264,7 @@ fn stereo_mix(channels: Channels) -> Vec<(f64, f64)> {
 mod tests {
     use super::*;
 
-    /// The sample file ("TV Girl - For You", YouTube format 140) at `TRUFFLE_TEST_DIR`\test.m4a, if there.
+    /// The sample file ("TV Girl - For You", YouTube format 140) at `CODA_TEST_DIR`\test.m4a, if there.
     fn sample_path() -> std::path::PathBuf {
         crate::config::test_root().join("test.m4a")
     }

@@ -1,10 +1,10 @@
-//! Truffle's own player for decoded audio (the YouTube sound source). It stands in for librespot's
+//! Coda's own player for decoded audio (the YouTube sound source). It stands in for librespot's
 //! `Player` in a slot and speaks its language: the same commands, and the same `PlayerEvent`s in
 //! the same order, so `Tracking`, the event task and the crossfade bookkeeping treat it like any
 //! other player.
 //!
 //! - A song is found and fetched on the tokio runtime (see [`PcmResolver`]) and handed to the
-//!   player's thread, which decodes it and writes it to Truffle's output (equalizer, fades and
+//!   player's thread, which decodes it and writes it to Coda's output (equalizer, fades and
 //!   device problems included). A newer load cancels an older fetch.
 //! - The output holds about half a second of audio, and that back-pressure paces the thread.
 //! - The user's volume is applied here (librespot applies it inside its player). No normalisation.
@@ -65,7 +65,7 @@ pub(super) trait PcmResolver: Send + Sync {
     fn open(&self, track: TrackInfo) -> BoxFuture<'static, Result<Box<dyn PcmDecoder>, String>>;
 }
 
-/// Where a PCM player's audio goes: Truffle's output (a recorder in tests).
+/// Where a PCM player's audio goes: Coda's output (a recorder in tests).
 pub(super) trait PcmSink {
     fn start(&mut self) -> SinkResult<()>;
     fn stop(&mut self) -> SinkResult<()>;
@@ -161,7 +161,7 @@ impl PcmPlayer {
         let (commands, receiver) = mpsc::channel();
         let (events, event_stream) = unbounded_channel();
         let reply = commands.clone();
-        let spawned = std::thread::Builder::new().name("truffle-pcm-player".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-pcm-player".into()).spawn(move || {
             let worker = Worker {
                 env,
                 commands: receiver,

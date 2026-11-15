@@ -9,7 +9,7 @@ use std::sync::Arc;
 use egui::text::{LayoutJob, TextWrapping};
 use egui::{Align2, Color32, CornerRadius, CursorIcon, Id, Key, Modifiers, Rect, Sense, Stroke, StrokeKind, TextFormat, Ui, pos2, vec2};
 
-use super::TruffleApp;
+use super::CodaApp;
 use super::fin;
 use super::svgicon;
 use super::theme::{Palette, bold, regular};
@@ -160,7 +160,7 @@ impl Found {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Opens "Find duplicates" for one of the user's own playlists and reads it as it is now. Not
     /// over another dialog, so one Enter never answers both.
     pub(super) fn find_duplicates(&mut self, uri: &str) {

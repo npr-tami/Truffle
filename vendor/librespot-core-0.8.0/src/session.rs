@@ -362,7 +362,7 @@ impl Session {
 
     fn check_catalogue(attributes: &UserAttributes) {
         if let Some(account_type) = attributes.get("type") {
-            // Truffle: a free account may still use the library (its sound then comes from
+            // Coda: a free account may still use the library (its sound then comes from
             // elsewhere), so this only notes it instead of closing the program.
             if account_type != "premium" {
                 info!("account type {account_type:?}: Spotify playback needs Premium");

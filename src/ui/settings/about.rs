@@ -1,6 +1,6 @@
 //! Settings → About, as in the mockup chosen for it (docs/mockups/about.html, "Spinning record"):
-//! the record turning while music plays beside the wordmark, version and song; "Your Truffle" (the
-//! play counts added up); "This copy" (account, YouTube helpers, Truffle's folder, details to copy
+//! the record turning while music plays beside the wordmark, version and song; "Your Coda" (the
+//! play counts added up); "This copy" (account, YouTube helpers, Coda's folder, details to copy
 //! for a bug report); "Made with", and the open-source licences in a box over it. Sizes are the
 //! mockup's CSS pixels, which are egui points; its line heights (1.4, the credits' 1.6) decide where
 //! each line of text sits.
@@ -18,7 +18,7 @@ use egui::{
 use super::Item;
 use crate::config::SoundSource;
 use crate::model::{Command, Helpers, PlayStats, PlayStatus};
-use crate::ui::TruffleApp;
+use crate::ui::CodaApp;
 use crate::ui::accent::{from_hsv, to_hsv};
 use crate::ui::fin;
 use crate::ui::kit;
@@ -46,9 +46,9 @@ const SHADOW_BLUR: u8 = 46;
 /// The grooves: #111 with a 1 px #1a1a1d ring every 3 px.
 const GROOVE: Color32 = Color32::from_rgb(17, 17, 17);
 const GROOVE_RING: Color32 = Color32::from_rgb(26, 26, 29);
-const WORDMARK_W: f32 = 200.0;
+const WORDMARK_W: f32 = 118.0;
 /// `assets/wordmark.png`'s height for its width, until it is decoded.
-const WORDMARK_ASPECT: f32 = 347.0 / 1495.0;
+const WORDMARK_ASPECT: f32 = 325.0 / 881.0;
 /// The most played song's cover.
 const COVER: f32 = 40.0;
 /// "Found" (`--ok`).
@@ -64,7 +64,7 @@ static LICENCES: &str = include_str!("../../../assets/licences.txt");
 /// The About page's own state: what it asked for and got back, and its record's turn.
 #[derive(Default)]
 pub(in crate::ui) struct AboutState {
-    /// "Your Truffle", asked for each time the page shows.
+    /// "Your Coda", asked for each time the page shows.
     stats: Option<PlayStats>,
     pub(super) stats_asked: bool,
     /// The YouTube helpers' versions, asked for once a run.
@@ -384,7 +384,7 @@ fn row(ui: &mut Ui, title: &str, note: &str, parts: &[Part]) -> Option<usize> {
 }
 
 /// "Version 0.1.0 · built 25 Oct 2026".
-const VERSION_LINE: &str = concat!("Version ", env!("CARGO_PKG_VERSION"), " · built ", env!("TRUFFLE_BUILD_DATE"));
+const VERSION_LINE: &str = concat!("Version ", env!("CARGO_PKG_VERSION"), " · built ", env!("CODA_BUILD_DATE"));
 
 /// Said while "Copy details" waits for the YouTube helpers' versions.
 const CHECKING_HELPERS: &str = "Checking the YouTube helpers…";
@@ -402,7 +402,7 @@ fn named(name: &str, version: &str) -> String {
     if version.is_empty() { name.to_owned() } else { format!("{name} {version}") }
 }
 
-/// What "Copy details" copies, for a bug report: Truffle's version and build date, Windows, the
+/// What "Copy details" copies, for a bug report: Coda's version and build date, Windows, the
 /// account type, where the sound comes from and the YouTube helpers. Never a name, a path or a key.
 fn details_text(windows: &str, premium: Option<bool>, sound: SoundSource, helpers: Option<&Helpers>) -> String {
     let account = match premium {
@@ -418,9 +418,9 @@ fn details_text(windows: &str, premium: Option<bool>, sound: SoundSource, helper
         None => ("yt-dlp not checked yet".to_owned(), "JavaScript runtime not checked yet".to_owned()),
     };
     format!(
-        "Truffle {}, built {}\n{windows}\nAccount: {account}\nSound from {}\n{ytdlp}\n{js}\n",
+        "coda {}, built {}\n{windows}\nAccount: {account}\nSound from {}\n{ytdlp}\n{js}\n",
         env!("CARGO_PKG_VERSION"),
-        env!("TRUFFLE_BUILD_DATE"),
+        env!("CODA_BUILD_DATE"),
         source_name(sound)
     )
 }
@@ -430,7 +430,7 @@ fn most_played(plays: u32) -> String {
     if plays == 1 { "most played · 1 time".to_owned() } else { format!("most played · {} times", fmt_thousands(plays as usize)) }
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub(in crate::ui) fn on_play_stats(&mut self, ctx: &egui::Context, stats: PlayStats) {
         if let Some(track) = stats.top.as_ref().and_then(|t| t.track.as_ref()) {
             self.fonts.scan(ctx, &track.name);
@@ -572,7 +572,7 @@ impl TruffleApp {
         }
     }
 
-    /// "Your Truffle" (`.stats`): three equal columns split by lines, 16 18 inside: songs played,
+    /// "Your Coda" (`.stats`): three equal columns split by lines, 16 18 inside: songs played,
     /// different songs (22 px bold numbers over 12 px muted words), and the most played song with
     /// its 40 px cover.
     fn about_stats(&mut self, ui: &mut Ui) {
@@ -657,10 +657,10 @@ impl TruffleApp {
                     }
                 },
             },
-            // Release builds keep the settings in another folder (`%APPDATA%\truffle\config`), so
+            // Release builds keep the settings in another folder (`%APPDATA%\coda\config`), so
             // they aren't named here.
-            Item::Folder => match row(ui, "Truffle's folder", "Cache and logs", &[Part::Button("Open folder"), Part::Button("Open log")]) {
-                Some(0) => self.open_path(self.paths.data_dir(), "Truffle's folder"),
+            Item::Folder => match row(ui, "coda's folder", "Cache and logs", &[Part::Button("Open folder"), Part::Button("Open log")]) {
+                Some(0) => self.open_path(self.paths.data_dir(), "coda's folder"),
                 Some(_) => match crate::config::log_file().filter(|f| f.is_file()) {
                     Some(log) => self.open_path(log, "the log"),
                     None => self.toast("There's no log file yet.", false),
@@ -748,7 +748,7 @@ impl TruffleApp {
         let mut close = false;
         let modal = fin::dialog(ctx, Id::new("about_licences"), |ui| {
             ui.set_width(480f32.min(ctx.content_rect().width() - 80.0).max(200.0));
-            fin::dialog_head(ui, "Open-source licences", Some("Truffle is made with these, each under its own licence."));
+            fin::dialog_head(ui, "Open-source licences", Some("coda is made with these, each under its own licence."));
             ui.add_space(10.0);
             ui.scope(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
@@ -833,7 +833,7 @@ mod tests {
 
     #[test]
     fn the_version_line_has_the_build_date() {
-        assert_eq!(VERSION_LINE, format!("Version {} · built {}", env!("CARGO_PKG_VERSION"), env!("TRUFFLE_BUILD_DATE")));
+        assert_eq!(VERSION_LINE, format!("Version {} · built {}", env!("CARGO_PKG_VERSION"), env!("CODA_BUILD_DATE")));
     }
 
     #[test]
@@ -848,7 +848,7 @@ mod tests {
         assert_eq!(
             lines,
             [
-                format!("Truffle {}, built {}", env!("CARGO_PKG_VERSION"), env!("TRUFFLE_BUILD_DATE")).as_str(),
+                format!("coda {}, built {}", env!("CARGO_PKG_VERSION"), env!("CODA_BUILD_DATE")).as_str(),
                 "Windows 11 25H2 (build 26200.6899)",
                 "Account: Premium",
                 "Sound from Spotify",
@@ -885,8 +885,8 @@ mod tests {
         for l in list {
             assert!(!l.licence.is_empty(), "{} has no licence", l.name);
         }
-        // Truffle itself is not one of its own dependencies.
-        assert!(!has("truffle"));
+        // Coda itself is not one of its own dependencies.
+        assert!(!has("coda"));
     }
 
     #[test]

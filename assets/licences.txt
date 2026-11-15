@@ -1,4 +1,4 @@
-# The open-source code and font in Truffle, and the programs its YouTube sound uses, with their
+# The open-source code and font in Coda, and the programs its YouTube sound uses, with their
 # licences: name, version and licence, split by tabs. Made by `cargo run --example licences`.
 Inter	4.001	OFL-1.1
 yt-dlp		Unlicense

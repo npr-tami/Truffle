@@ -1,4 +1,4 @@
-//! The 10-band graphic equalizer applied in Truffle's own audio output.
+//! The 10-band graphic equalizer applied in Coda's own audio output.
 //!
 //! - RBJ "Audio EQ Cookbook" biquads at the audio's rate (librespot's fixed 44.1 kHz, or a YouTube
 //!   song's own): a low shelf at 31 Hz, peaking filters for 62 Hz..8 kHz and a high shelf at

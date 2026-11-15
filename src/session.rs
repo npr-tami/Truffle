@@ -59,10 +59,10 @@ const CREDENTIALS_FILE: &str = "credentials.json";
 const DEVICE_ID_FILE: &str = "device_id";
 
 /// Page shown in the browser tab after the redirect. Plain ASCII: the listener sends no charset.
-const LOGIN_DONE_PAGE: &str = "<!doctype html><html><head><meta charset=\"utf-8\"><title>Truffle</title></head>\
+const LOGIN_DONE_PAGE: &str = "<!doctype html><html><head><meta charset=\"utf-8\"><title>coda</title></head>\
 <body style=\"font-family:'Segoe UI',system-ui,sans-serif;background:#121212;color:#f0f0f0;\
 text-align:center;padding-top:18vh\"><h1 style=\"font-weight:600\">Logged in &mdash; you can close this tab \
-and return to Truffle</h1></body></html>";
+and return to coda</h1></body></html>";
 
 /// Number of browser-login threads still running (possibly abandoned after a timeout).
 static LOGIN_THREADS: AtomicUsize = AtomicUsize::new(0);
@@ -99,7 +99,7 @@ pub async fn connect_cached(paths: &Paths, settings: &Settings) -> Result<Option
 /// then connect and store reusable credentials. Must be called from within the tokio runtime.
 ///
 /// The browser step waits at most 5 minutes. librespot's redirect listener cannot be cancelled,
-/// so on timeout (or if this future is dropped) the blocking thread may linger briefly; Truffle
+/// so on timeout (or if this future is dropped) the blocking thread may linger briefly; Coda
 /// unblocks it by connecting to the listener once, which makes it give up and free the port.
 pub async fn connect_interactive(paths: &Paths, settings: &Settings) -> Result<Session> {
     let config = session_config(paths);
@@ -157,7 +157,7 @@ pub fn forget_credentials(paths: &Paths) -> Result<()> {
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(anyhow!(
-            "Truffle couldn't delete the saved Spotify login ({}): {e}",
+            "coda couldn't delete the saved Spotify login ({}): {e}",
             file.display()
         )),
     }
@@ -218,7 +218,7 @@ fn build_cache(paths: &Paths, settings: &Settings) -> Result<Cache> {
     }
     Cache::new(Some(credentials_dir.clone()), None, None, None).map_err(|e| {
         anyhow!(
-            "Truffle couldn't open its settings folder ({}): {e}",
+            "coda couldn't open its settings folder ({}): {e}",
             credentials_dir.display()
         )
     })
@@ -249,7 +249,7 @@ impl ConnectError {
                 anyhow!("Spotify didn't accept the saved login. Please log in again.")
             }
             ConnectError::PremiumRequired => anyhow!(
-                "Truffle needs a Spotify Premium account. Free accounts can't play music in Truffle."
+                "coda needs a Spotify Premium account. Free accounts can't play music in coda."
             ),
             ConnectError::Refused(reason) if reason.to_ascii_lowercase().contains("travel") => {
                 anyhow!("Spotify says your account can't be used from this country right now.")
@@ -339,8 +339,8 @@ fn oauth_user_error(error: OAuthError) -> anyhow::Error {
 
 fn port_busy_error() -> anyhow::Error {
     anyhow!(
-        "Truffle couldn't start its login helper because another program is using port {REDIRECT_PORT}. \
-         Close other Spotify tools (or another Truffle window) and try again."
+        "coda couldn't start its login helper because another program is using port {REDIRECT_PORT}. \
+         Close other Spotify tools (or another coda window) and try again."
     )
 }
 
@@ -488,7 +488,7 @@ mod tests {
 
     #[tokio::test]
     async fn no_saved_login_means_none() {
-        let root = std::env::temp_dir().join(format!("truffle-session-test-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("coda-session-test-{}", std::process::id()));
         let paths = Paths { config: root.join("config"), cache: root.join("cache") };
         let settings = Settings { audio_cache_mb: 1, ..Settings::default() };
 

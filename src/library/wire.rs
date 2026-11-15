@@ -1,6 +1,6 @@
 //! Minimal hand-written protobuf codec for `collection2v2.proto`
 //! (librespot-protocol-0.8.0/proto/collection2v2.proto, package spotify.collection.proto.v2).
-//! librespot-protocol does not compile that file, so the few messages Truffle needs for the
+//! librespot-protocol does not compile that file, so the few messages Coda needs for the
 //! Liked Songs collection are encoded/decoded here. Proto3: default values are not written.
 //!
 //! ```text

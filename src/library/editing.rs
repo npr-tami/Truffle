@@ -32,7 +32,7 @@ fn web_api_may_help(e: &CoreError) -> bool {
 }
 
 fn playlist_spotify_id(uri: &str) -> Result<SpotifyId> {
-    convert::playlist_id(uri).ok_or_else(|| anyhow!("That isn't a Spotify playlist Truffle can edit."))
+    convert::playlist_id(uri).ok_or_else(|| anyhow!("That isn't a Spotify playlist coda can edit."))
 }
 
 fn base62(id: &SpotifyId) -> Result<String> {
@@ -155,7 +155,7 @@ impl Library {
                             let e = last_error.take();
                             return Err(match e {
                                 Some(e) => friendly("Couldn't search Spotify.", e, session),
-                                None => anyhow!("Spotify's search changed and Truffle can't use it right now."),
+                                None => anyhow!("Spotify's search changed and coda can't use it right now."),
                             });
                         }
                     }
@@ -206,7 +206,7 @@ impl Library {
         if sections.is_empty() {
             return Err(match last_error {
                 Some(e) => friendly("Couldn't search Spotify.", e, &session),
-                None => anyhow!("Spotify's search changed and Truffle can't use it right now."),
+                None => anyhow!("Spotify's search changed and coda can't use it right now."),
             });
         }
         let more = sections.iter().any(|s| pathfinder::has_more(s, offset as usize));
@@ -232,7 +232,7 @@ impl Library {
     /// a song when it has its link, or another version of it: the same name by the same artists,
     /// as "Find duplicates" matches them (the single, when it has the album version). It is read
     /// from Spotify first, never from the saved copy (which may be behind): after any change of
-    /// Truffle's on its way, and no other one comes between the read and the add. With only songs
+    /// Coda's on its way, and no other one comes between the read and the add. With only songs
     /// from `again` there is nothing to look for, and it isn't read.
     pub async fn add_new_to_playlist(&self, uri: &str, uris: &[String], again: &[String]) -> Result<Added> {
         let id = playlist_spotify_id(uri)?;
@@ -491,7 +491,7 @@ impl Library {
         let path = image_path.to_path_buf();
         let jpeg = tokio::task::spawn_blocking(move || crate::webapi::prepare_cover_jpeg(&path))
             .await
-            .map_err(|_| anyhow!("Truffle couldn't process the picture. Please try a different one."))??;
+            .map_err(|_| anyhow!("coda couldn't process the picture. Please try a different one."))??;
         let _turn = self.inner.write_gate.lock().await;
         let picture = match fetch::upload_playlist_picture(&session, &id, jpeg).await {
             Ok(p) => p,
@@ -501,7 +501,7 @@ impl Library {
                     api.upload_playlist_cover(&base62(&id)?, image_path).await?;
                     return Ok(None);
                 }
-                return Err(friendly("Spotify didn't accept the picture from Truffle.", e, &session));
+                return Err(friendly("Spotify didn't accept the picture from coda.", e, &session));
             }
         };
         let build = |revision: &[u8]| {
@@ -552,7 +552,7 @@ impl Library {
                 }
             }
             Sent::Conflict | Sent::Refused(_) => {
-                log::info!("Spotify didn't take a playlist id of Truffle's own; asking it for one");
+                log::info!("Spotify didn't take a playlist id of coda's own; asking it for one");
                 match fetch::create_playlist_web(&session, name).await {
                     Sent::Applied(reply) => match serde_json::from_slice::<Value>(&reply).ok().and_then(|v| v["uri"].as_str().map(str::to_owned)) {
                         Some(made) => {

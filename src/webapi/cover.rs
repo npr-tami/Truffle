@@ -11,7 +11,7 @@ use image::{DynamicImage, ImageDecoder, ImageError, ImageReader, Rgb, RgbImage};
 
 /// Spotify's documented limit for the base64 body of `PUT /playlists/{id}/images`.
 pub const MAX_COVER_BASE64_LEN: usize = 256 * 1024;
-/// Truffle aims a little lower so a different reading of "256 KB" can't reject the upload.
+/// Coda aims a little lower so a different reading of "256 KB" can't reject the upload.
 const TARGET_BASE64_LEN: usize = 256 * 1000;
 const MAX_SIDE: u32 = 640;
 /// Fallback sizes when even low quality doesn't fit (very noisy images).
@@ -25,7 +25,7 @@ const MAX_FILE_BYTES: u64 = 200 * 1024 * 1024;
 pub fn prepare_cover_jpeg(image_path: &Path) -> Result<Vec<u8>> {
     let meta = std::fs::metadata(image_path).map_err(|e| {
         log::warn!("cover {}: {e}", image_path.display());
-        anyhow!("Truffle couldn't open the picture \"{}\".", file_label(image_path))
+        anyhow!("coda couldn't open the picture \"{}\".", file_label(image_path))
     })?;
     if !meta.is_file() {
         bail!("\"{}\" isn't a picture file.", file_label(image_path));
@@ -50,11 +50,11 @@ fn file_label(path: &Path) -> String {
 
 fn decode(path: &Path) -> Result<DynamicImage> {
     let reader = ImageReader::open(path)
-        .with_context(|| format!("Truffle couldn't open the picture \"{}\".", file_label(path)))?
+        .with_context(|| format!("coda couldn't open the picture \"{}\".", file_label(path)))?
         .with_guessed_format()
-        .with_context(|| format!("Truffle couldn't read the picture \"{}\".", file_label(path)))?;
+        .with_context(|| format!("coda couldn't read the picture \"{}\".", file_label(path)))?;
     if reader.format().is_none() {
-        bail!("That file isn't a picture Truffle can read. Please choose a JPEG, PNG or WebP image.");
+        bail!("That file isn't a picture coda can read. Please choose a JPEG, PNG or WebP image.");
     }
     let mut decoder = reader.into_decoder().map_err(|e| friendly_image_error(path, e))?;
     let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
@@ -71,7 +71,7 @@ fn friendly_image_error(path: &Path, e: ImageError) -> anyhow::Error {
             anyhow!("That picture format isn't supported. Please choose a JPEG, PNG or WebP image.")
         }
         ImageError::Limits(_) => anyhow!("That picture is too large to process. Please choose a smaller one."),
-        ImageError::IoError(_) => anyhow!("Truffle couldn't read the picture \"{}\".", file_label(path)),
+        ImageError::IoError(_) => anyhow!("coda couldn't read the picture \"{}\".", file_label(path)),
         _ => anyhow!("The picture \"{}\" seems to be damaged and can't be opened.", file_label(path)),
     }
 }
@@ -131,7 +131,7 @@ fn fit_jpeg(square: &RgbImage) -> Result<Vec<u8>> {
             log::debug!("cover {side}px q{quality}: {encoded} bytes base64, too large");
         }
     }
-    bail!("Truffle couldn't make this picture small enough for Spotify (covers must be under 256 KB). Please try a different picture.")
+    bail!("coda couldn't make this picture small enough for Spotify (covers must be under 256 KB). Please try a different picture.")
 }
 
 fn encode_jpeg(img: &RgbImage, quality: u8) -> Result<Vec<u8>> {
@@ -140,7 +140,7 @@ fn encode_jpeg(img: &RgbImage, quality: u8) -> Result<Vec<u8>> {
         .encode_image(img)
         .map_err(|e| {
             log::warn!("JPEG encoding failed: {e}");
-            anyhow!("Truffle couldn't convert the picture to JPEG.")
+            anyhow!("coda couldn't convert the picture to JPEG.")
         })?;
     Ok(out)
 }
@@ -156,7 +156,7 @@ mod tests {
 
     impl TempFile {
         fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!("truffle-cover-test-{}", std::process::id()));
+            let dir = std::env::temp_dir().join(format!("coda-cover-test-{}", std::process::id()));
             std::fs::create_dir_all(&dir).unwrap();
             Self(dir.join(name))
         }

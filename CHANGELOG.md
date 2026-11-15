@@ -1,14 +1,18 @@
-# What changed in Truffle
+# What changed in Coda
 
 The newest version is at the top.
 
+## 0.1.3
+
+- Truffle is now called Coda: new name, new icon and logo. Your settings, sign-ins, likes, listen-along links and queue come over by themselves, and updates keep working.
+
 ## 0.1.2 · 14/11/2026
 
-- Settings opens as a page inside Truffle instead of a separate window (Esc or Back closes it)
-- Truffle can update itself: once a day it looks for a new version and asks first (Update now, Later, Skip this version, or stop checking)
+- Settings opens as a page inside Coda instead of a separate window (Esc or Back closes it)
+- Coda can update itself: once a day it looks for a new version and asks first (Update now, Later, Skip this version, or stop checking)
 - Settings > About > Updates: Check now and the automatic check switch
 - Updating keeps the music playing while it downloads, then restarts on the same song
-- Truffle saves your place as soon as the song changes, so it comes back on the right song even after a crash
+- Coda saves your place as soon as the song changes, so it comes back on the right song even after a crash
 - Home: New releases covers lift on hover like For you's, and Show all opens every new release
 
 ## 0.1.1 · 13/11/2026

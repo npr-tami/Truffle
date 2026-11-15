@@ -1,5 +1,5 @@
 //! The build date Settings > About shows ("25 Oct 2026"). `build.rs` works it out once per build
-//! with this file and hands it to the app as `TRUFFLE_BUILD_DATE`; the app's tests check it here.
+//! with this file and hands it to the app as `CODA_BUILD_DATE`; the app's tests check it here.
 
 const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -39,7 +39,7 @@ mod tests {
     /// What this build says: a day without a leading zero, a short month and the year.
     #[test]
     fn the_build_date_reads_like_25_oct_2026() {
-        let date = env!("TRUFFLE_BUILD_DATE");
+        let date = env!("CODA_BUILD_DATE");
         let parts: Vec<&str> = date.split(' ').collect();
         assert_eq!(parts.len(), 3, "{date}");
         let day: u32 = parts[0].parse().expect(date);

@@ -1,4 +1,4 @@
-//! Truffle's controls, in the style of the user's Glint app: one rounded shape for everything,
+//! Coda's controls, in the style of the user's Glint app: one rounded shape for everything,
 //! CAPITAL button labels, 40x20 switches, painted line icons, thin line sliders, setting cards and
 //! text tabs.
 

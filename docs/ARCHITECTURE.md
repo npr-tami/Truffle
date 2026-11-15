@@ -1,4 +1,4 @@
-# Truffle architecture
+# Coda architecture
 
 Lightweight native Windows Spotify client: Rust + librespot 0.8 (playback, library reads) +
 egui/eframe 0.36 with the glow renderer (UI) + optional official Web API (editing).
@@ -6,7 +6,7 @@ Spotify Premium required.
 
 ## Threads
 
-- **Main / UI thread** (eframe, winit message loop): `ui::TruffleApp`. Never blocks. Sends
+- **Main / UI thread** (eframe, winit message loop): `ui::CodaApp`. Never blocks. Sends
   `model::Command` over a tokio unbounded channel; drains `model::Event` from a std mpsc channel.
   - `App::logic` runs before every frame **and also while the window is hidden in the tray or
     minimized** (eframe 0.36 then runs logic only, no egui pass, throttled). It is the only place
@@ -14,7 +14,7 @@ Spotify Premium required.
     close requests and the single-instance activation flag. So media keys, tray clicks and the
     Discord status keep working with no window on screen.
   - `App::ui` only draws (skipped while hidden), and only visible frames schedule periodic
-    repaints, so a hidden Truffle uses no CPU between events.
+    repaints, so a hidden Coda uses no CPU between events.
   - The tray icon and the Windows media overlay (SMTC) live on this thread. Tray clicks arrive
     inside the message loop; media-key presses on a Windows thread-pool thread. Both go through
     one channel in `platform` and wake the UI with `request_repaint`.
@@ -27,19 +27,19 @@ Spotify Premium required.
   Opening the approval page runs on the blocking pool. See "Last.fm" below.
 - **Audio**: one librespot `Player` thread per player slot (a second slot exists only while
   crossfade is on), each with its own rodio/WASAPI output stream; Windows mixes them.
-- **`truffle-discord`**: the Discord IPC connection (`platform/discord.rs`). Takes the newest
+- **`coda-discord`**: the Discord IPC connection (`platform/discord.rs`). Takes the newest
   presence from a channel, debounces (700 ms) and rate-limits (5 per 20 s), waits for each reply.
   While nothing changes it re-sends the status every 30 s, so a Discord restart is noticed (the
   pipe only reports being closed when written to) and the status comes back.
   Dropping its handle stops it without waiting, so a stuck pipe never blocks the UI.
-- **`truffle-activate`**: waits on a named event; a second launch signals it and the window is
+- **`coda-activate`**: waits on a named event; a second launch signals it and the window is
   shown (`main.rs`, `single_instance`).
-- Short-lived: `truffle-shortcut` (COM, creates the .lnk), `truffle-file-dialog` (cover picker),
-  `truffle-font` (loads a script font), `truffle-player-shutdown`.
+- Short-lived: `coda-shortcut` (COM, creates the .lnk), `coda-file-dialog` (cover picker),
+  `coda-font` (loads a script font), `coda-player-shutdown`.
 
 ## Start-up and window states (`main.rs`, `ui/shell.rs`)
 
-- **Single instance**: a named mutex (`Local\Truffle-…-instance`, `-dev` suffix in debug builds)
+- **Single instance**: a named mutex (`Local\Coda-…-instance`, `-dev` suffix in debug builds)
   plus a named event. A second launch signals the event and exits (a `--minimized` relaunch
   exits quietly); a launch while the old one is still closing waits up to 15 s for it.
 - **`--minimized`** (used by the startup entry): `main.rs` minimises and hides the still-unpainted
@@ -65,7 +65,7 @@ Spotify Premium required.
   +/− set the screen's size, Ctrl 0 forgets it. "Grow with the window" multiplies by
   `clamp(width / 1400, 1, 1.5)` (logical width, so the zoom can't feed back), once the width has
   stayed 0.3 s; not in the mini player. The width is read before the first frame too, so it
-  opens grown. An older `ui_scale` other than 1.0 becomes the size of the first screen Truffle
+  opens grown. An older `ui_scale` other than 1.0 becomes the size of the first screen Coda
   opens on, then is 1.0.
 
 ## Modules
@@ -73,9 +73,9 @@ Spotify Premium required.
 | File | Role |
 |---|---|
 | `model.rs` | Types shared between modules. They grow by adding (a new variant, or a field with a default) rather than by renaming or removing. |
-| `config.rs` | `Paths`, `Settings`, JSON helpers. Debug builds honour `TRUFFLE_DEV_DATA_DIR`. |
+| `config.rs` | `Paths`, `Settings`, JSON helpers. Debug builds honour `CODA_DEV_DATA_DIR`. |
 | `main.rs` | Runtime + eframe set-up, `--minimized` start, single instance, shutdown. |
-| `icon.rs`, `build.rs`, `assets/`, `examples/make_icon.rs` | Window/tray icon (embedded PNGs), exe icon + version resource (rc.exe via winresource), icon generator. `build.rs` also sets `TRUFFLE_BUILD_DATE` (`src/build_date.rs`) for Settings → About. |
+| `icon.rs`, `build.rs`, `assets/`, `examples/make_icon.rs` | Window/tray icon (embedded PNGs), exe icon + version resource (rc.exe via winresource), icon generator. `build.rs` also sets `CODA_BUILD_DATE` (`src/build_date.rs`) for Settings → About. |
 | `assets/licences.txt`, `examples/licences.rs` | The open-source licences Settings → About lists: every crate in the Windows build (from `cargo metadata`), Inter, yt-dlp and Node.js. Run `cargo run --example licences` after changing dependencies. |
 | `session.rs` | librespot OAuth login + credential cache. |
 | `engine.rs` | Player slots, mixer, `EngineEvent`s, crossfade hand-over. Submodules: `tracking` (event filtering), `output` (own rodio sink, device loss), `dsp` (equalizer + limiter, allocation-free), `gain` (fades applied at play time: crossfade, sleep-timer fade). |
@@ -113,7 +113,7 @@ Spotify Premium required.
 
 - **Following** (`Command::ListenAlong { how, name }`, `ListenStop`; `Event::Listening`): `how` is a
   friend in Spotify's friend activity (`/presence-view/v1/user/{name}`, read every 5 s) or a
-  Truffle host's channel playlist (its header read every 3 s). The user's queue waits aside; the
+  Coda host's channel playlist (its header read every 3 s). The user's queue waits aside; the
   host's song plays from a one-song queue (source: its album) at `position + (now - sent_at)`.
   Off by more than 2.5 s: seek (2 s right after a song starts, for YouTube's fetch). The end of
   the host's song is waited out. Play/pause/next/previous/seek/shuffle/queue commands are
@@ -121,11 +121,11 @@ Spotify Premium required.
   song, 5 failed reads, the headphones going away) brings the user's music back, paused where it
   was. A host clock running ahead (a state "sent" after now) is allowed for.
 - **Sharing** (`ListenShare(bool)`, `Event::ListenShare { on, link }`): off by default. Every
-  friend's link that isn't kicked gets `Listen along with me on Truffle. [tl1;<uri>;<ms>;<sent at
+  friend's link that isn't kicked gets `Listen along with me on Coda. [tl1;<uri>;<ms>;<sent at
   ms>;<play|pause|stop>]` on every song change, pause, resume and seek (`flush_playback` compares
   with the state shared last). `listen::links::Fanout`: one `Outbox` per link (at most one write
   on its way and one a second, the newest wins) and a shared budget, 12 at once then 1 a second,
-  because librespot allows about 300 calls per 30 s for all of Truffle (`http_client.rs`) and a
+  because librespot allows about 300 calls per 30 s for all of Coda (`http_client.rs`) and a
   write is 2 (header read, then the change). Stops go first and need no budget; a "slow down"
   pauses every link write for 30 s. Link writes (`Library::write_channel`) skip the write gate
   (nothing else edits link playlists) but take turns per link, so quitting's stop lands after a
@@ -134,10 +134,10 @@ Spotify Premium required.
   at most.
 - **Links** (`ListenNewLink { name }`, `ListenRenameLink`, `ListenKick { id, kick }`,
   `ListenRemoveLink(id)`, `ListenRemakeLink(id)`; `Event::ListenLinks`; `controller/links.rs`,
-  `ui/links.rs`): one channel playlist per friend, all named "Truffle · listen along"
+  `ui/links.rs`): one channel playlist per friend, all named "Coda · listen along"
   (made with `create_channel`, so not on the profile); the friend's name stays on this PC.
   Up to 10 per account. They live in `listen_links.json` (`listen::links::LinkBook`), not in
-  settings.json, because an older Truffle saves all of settings.json at exit and drops keys it
+  settings.json, because an older Coda saves all of settings.json at exit and drops keys it
   doesn't know. **Pause** (a link's switch turned off; `kick` in the code) = the ordinary stop written once (what every other link says when the
   music stops: "Not sharing right now." while sharing is off; owed until it lands, so it
   survives a restart and goes at the next login), then nothing; the friend sees "… stopped
@@ -147,7 +147,7 @@ Spotify Premium required.
   owed (`Removed::delete_owed`, saved) until Spotify says it is out: one that fails, or is cut
   off by quitting or a lost connection, is asked for again at login, after reconnecting and
   after a library refresh, and a refresh that still finds a removed link's playlist takes it out
-  too (Truffle hides them, so nothing else would). The uri is kept as a tombstone, never written
+  too (Coda hides them, so nothing else would). The uri is kept as a tombstone, never written
   or taken in again. A removed link never checked (owner unknown) that another account can't
   write keeps its stop for its own account. A link's playlist made as the session ended becomes
   such a tombstone, owing its stop, so it goes at that account's next login; one whose making
@@ -158,8 +158,8 @@ Spotify Premium required.
   playlist and the new one goes. A link made this session is never taken as gone; one made while
   a song loads says stopped until the song plays, then hears it. Links of another account are
   never written or shown. `Settings::listen_channel` is kept as the first link that isn't
-  kicked, so older Truffles write to no kicked link; the one channel from before links became
-  the "First link", and a channel an older Truffle makes is taken in as an "Older link" at the
+  kicked, so older Codas write to no kicked link; the one channel from before links became
+  the "First link", and a channel an older Coda makes is taken in as an "Older link" at the
   next start (neither has a date: when it was made isn't known). Every save also writes
   `listen_links.json.bak`. A damaged `listen_links.json` is set aside, and the copy used and
   saved as the file again at once (a start that changes no link saves nothing); a file gone
@@ -181,16 +181,16 @@ Spotify Premium required.
   LINKS, then FRIENDS) and **Switch** ("Friends" | "Your listeners"). The New, Rename and Remove
   dialogs show over the main window. Settings > Accounts only says where it is, with OPEN (which
   closes Settings and opens the tab). The narrow window's Playing page has the same tab.
-- **Test aid**: `truffle-selftest.request` with `listen state|share on|share off|join <link>|follow
+- **Test aid**: `coda-selftest.request` with `listen state|share on|share off|join <link>|follow
   <user>|channel <link>|stop|friends`, and for links `listen links|newlink <name>|rename <n>
   <name>|kick <n>|unkick <n>|remove <n>|relink <n>` (`n`: the place in the Friends tab's list, from 1).
-  The report (in `truffle-selftest.txt` only, never the log: it has the links) has one line per
+  The report (in `coda-selftest.txt` only, never the log: it has the links) has one line per
   link (state, stop owed, last write, waiting, writing, link) and the budget. `channel <link>`
   follows one's own link too, for one-account tests.
 
 ## Platform (`platform/mod.rs`)
 
-The UI owns one `Platform`, created in `TruffleApp::new` with the main window's HWND (found by
+The UI owns one `Platform`, created in `CodaApp::new` with the main window's HWND (found by
 title on the UI thread; needed for SMTC).
 
 - `update(&PlaybackState)` every logic pass: cheap, acts only on changes (track, play/pause,
@@ -220,7 +220,7 @@ secret (32 hex characters each, checked in the UI and again in the controller).
   `lastfm_session.json`, and the controller saves the key, the secret and `lastfm_enabled = true`
   to the settings right away. An existing connection keeps working until then. The outcome
   (connected, or why not) also comes as a `Status` / `Error` toast, because clicking back into
-  Truffle from the browser can close Settings.
+  Coda from the browser can close Settings.
 - **Play counting**: `flush_playback` runs after every controller loop iteration (including the
   1 s tick) and hands the playback state plus `play_id` to the scrobbler. `play_id` changes on
   every new load and when "Previous" restarts a track, so repeats count as new plays. Listening
@@ -245,7 +245,7 @@ secret (32 hex characters each, checked in the UI and again in the controller).
   Settings then shows the reason with Connect again, Disconnect and the scrobbling switch; plays
   are still queued unless scrobbling is paused. The refusal code is saved in the session file
   (`refused`), so a later start shows "stopped" at once, doesn't toast again, and sends one
-  batch to check whether Last.fm accepts Truffle again (if so, it resumes by itself). A
+  batch to check whether Last.fm accepts Coda again (if so, it resumes by itself). A
   successful connect or Disconnect clears it. Both errors keep the queue and send one
   `Event::Error` toast.
 - **Queue file**: one that can't be parsed or read (after three tries) is renamed to
@@ -283,7 +283,7 @@ secret (32 hex characters each, checked in the UI and again in the controller).
 
 ## Data locations
 
-`%APPDATA%\truffle\config\` settings.json, state.json, webapi_token.json, librespot/ credentials,
+`%APPDATA%\coda\config\` settings.json, state.json, webapi_token.json, librespot/ credentials,
 lastfm_session.json (user name + session key, plus `refused` while Last.fm refuses the API
 account), lastfm_queue.json (unsent scrobbles, `{"version":1,"items":[…]}`, oldest first, each
 with the Last.fm `user` it was played for, at most 10,000), listen_links.json and its copy
@@ -291,8 +291,8 @@ listen_links.json.bak (the friends' listen-along links: their names, only on thi
 playlist, kicks, stops owed, removed links; private: each link is the key to listening along),
 like_queue.json (likes and unlikes not sent yet, `{"version":1,"accounts":{"<user>":[…]}}`,
 oldest first, the latest change per song; see `library/likes.rs`).
-`%LOCALAPPDATA%\truffle\cache\` tracks/ (per-source JSON), audio/ (librespot), images/.
+`%LOCALAPPDATA%\coda\cache\` tracks/ (per-source JSON), audio/ (librespot), images/.
 Only when switched on in Settings: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` value
-`Truffle` (`"<exe>" --minimized`), and `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Truffle.lnk`.
-Debug builds use `Truffle (dev)` for both, so they never touch the release build's entry.
-Debug builds with `TRUFFLE_DEV_DATA_DIR` set use `<dir>\config` and `<dir>\cache` instead.
+`Coda` (`"<exe>" --minimized`), and `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Coda.lnk`.
+Debug builds use `Coda (dev)` for both, so they never touch the release build's entry.
+Debug builds with `CODA_DEV_DATA_DIR` set use `<dir>\config` and `<dir>\cache` instead.

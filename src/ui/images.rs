@@ -89,7 +89,7 @@ pub struct ImageCache {
 impl ImageCache {
     pub fn new(ctx: &egui::Context, runtime: tokio::runtime::Handle, dir: PathBuf) -> Self {
         let client = reqwest::Client::builder()
-            .user_agent(concat!("Truffle/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("coda/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
             .pool_max_idle_per_host(MAX_CONCURRENT)

@@ -11,7 +11,7 @@ use super::fin::{self, Look};
 use super::motion;
 use super::theme::{bold, medium, regular};
 use super::tracks::one_line;
-use super::{STATUS_TOAST_TIME, TruffleApp};
+use super::{STATUS_TOAST_TIME, CodaApp};
 
 /// Every shortcut, by group: the keys, and what they do.
 pub(super) const GROUPS: &[(&str, &[(&str, &str)])] = &[
@@ -137,7 +137,7 @@ fn column_h(groups: &[(&str, &[(&str, &str)])]) -> f32 {
     groups.iter().map(|(_, rows)| GROUP_HEAD + rows.len() as f32 * ROW_H).sum::<f32>() + GROUP_GAP * (groups.len().saturating_sub(1)) as f32
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Ctrl+H: the shortcuts window opens, or closes again. Opening it takes the keys from a text
     /// box being typed in and closes a song menu.
     pub(super) fn toggle_help(&mut self, ctx: &egui::Context) {
@@ -302,7 +302,7 @@ mod tests {
     use super::*;
     use crate::ui::kit::headless::pass;
 
-    /// Keys other programs take for the whole system, so none may be Truffle's. AMD Adrenalin's
+    /// Keys other programs take for the whole system, so none may be Coda's. AMD Adrenalin's
     /// Ctrl Shift letters are three keys, which no shortcut is anyway.
     const TAKEN: &[(&str, &str)] = &[
         ("Alt R", "AMD Adrenalin's and NVIDIA App's overlays"),
@@ -530,7 +530,7 @@ mod tests {
         assert_eq!(takes(Modifiers::COMMAND, Key::A, ctrl), (true, false));
         assert_eq!(takes(Modifiers::SHIFT, Key::ArrowUp, Modifiers::SHIFT), (true, false));
         // Discord's Ctrl Shift M, NVIDIA's Ctrl Alt M (and AltGr M), the overlays' Alt R, PowerToys'
-        // Alt Space and Intel's Ctrl Alt → are not Truffle's Ctrl M, R, Space and Ctrl →.
+        // Alt Space and Intel's Ctrl Alt → are not Coda's Ctrl M, R, Space and Ctrl →.
         for (wanted, key, held) in [
             (Modifiers::CTRL, Key::M, ctrl_shift),
             (Modifiers::CTRL, Key::M, altgr),

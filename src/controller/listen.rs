@@ -635,7 +635,7 @@ impl Controller {
     }
 
     /// At login: the stops still owed go out (and the removed links' playlists still owed out of
-    /// the library), the link older Truffles write to follows this account's links, the links not
+    /// the library), the link older Codas write to follows this account's links, the links not
     /// checked yet (or broken) are checked, and the UI hears it.
     pub(super) fn listen_logged_in(&mut self) {
         if self.links_held {
@@ -759,7 +759,7 @@ impl Controller {
     /// list, once read), `listen state`, and for the links (`<n>`: the place in the list as the
     /// Friends tab shows it, from 1): `listen links`, `listen newlink <name>`, `listen rename <n>
     /// <name>`, `listen kick <n>`, `listen unkick <n>`, `listen remove <n>` (no question asked),
-    /// `listen relink <n>`. Each writes what listen along is doing to `truffle-selftest.txt` in
+    /// `listen relink <n>`. Each writes what listen along is doing to `coda-selftest.txt` in
     /// `dir`.
     pub(super) fn listen_selftest(&mut self, args: &str, dir: &Path) {
         let mut words = args.split_whitespace();
@@ -789,7 +789,7 @@ impl Controller {
             ("friends", _, _) => {
                 if let Some(library) = self.library.clone() {
                     let hosts = lock(&self.settings).listen_hosts.clone();
-                    let file = dir.join("truffle-selftest.txt");
+                    let file = dir.join("coda-selftest.txt");
                     tokio::spawn(async move {
                         let list = friends(&library, hosts).await;
                         let mut out = format!("friends: {}\n", list.len());
@@ -808,7 +808,7 @@ impl Controller {
         let report = self.listen_report();
         // The report has the links (each the key to listening) and names: only in the file.
         log::info!("self-test: listen report written ({} lines)", report.lines().count());
-        let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+        let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
     }
 
     /// The id of the link at place `n` (from 1) in the Friends tab's list.
@@ -829,7 +829,7 @@ impl Controller {
         let mirror = channel.as_deref().and_then(listen::channel_link).unwrap_or_else(|| "none".into());
         let _ = writeln!(
             out,
-            "sharing: {} | links: {} ({} live, {} kicked, {} gone, {} making) | older Truffles write to: {mirror}",
+            "sharing: {} | links: {} ({} live, {} kicked, {} gone, {} making) | older codas write to: {mirror}",
             if sharing { "on" } else { "off" },
             view.len(),
             count(LinkState::Ready),
@@ -912,7 +912,7 @@ fn activity_friend(a: listen::Activity, duration_ms: Option<u32>, now: i64) -> F
     }
 }
 
-/// The Friends list: friend activity and the Truffle hosts joined, playing ones first.
+/// The Friends list: friend activity and the Coda hosts joined, playing ones first.
 async fn friends(library: &Library, hosts: Vec<(String, String)>) -> Vec<Friend> {
     let now = now_ms();
     let activity = library.buddylist().await.unwrap_or_else(|e| {
@@ -994,7 +994,7 @@ mod tests {
 
     /// A controller with no session (no engine: loads end paused) writing into a temp folder.
     fn controller(name: &str) -> Controller {
-        let dir = std::env::temp_dir().join(format!("truffle-listen-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-listen-{name}-{}", std::process::id()));
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let (events, _) = std::sync::mpsc::channel();
         let ui = UiLink { events, ctx: egui::Context::default() };
@@ -1104,7 +1104,7 @@ mod tests {
     /// A fresh controller logged in as ME (no session: nothing is sent to Spotify), with `n`
     /// links of ME's, ids 1 to n.
     fn with_links(name: &str, n: u32) -> (Controller, Receiver<Event>) {
-        let dir = std::env::temp_dir().join(format!("truffle-links-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-links-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let (mut c, rx) = controller_at(paths, Arc::new(Mutex::new(Settings::default())));
@@ -1166,7 +1166,7 @@ mod tests {
         let due = land(&mut c, t + 1_000);
         assert_eq!(due.len(), 1);
         assert_eq!(due[0].0, link(1));
-        assert!(is_stop(&due[0].1) && due[0].1.starts_with("Listen along with me on Truffle."), "an ordinary stop: {}", due[0].1);
+        assert!(is_stop(&due[0].1) && due[0].1.starts_with("Listen along with me on coda."), "an ordinary stop: {}", due[0].1);
         assert!(!c.links.get(1).unwrap().stop_owed, "it landed");
         // From then on, news reaches the other link only, and quitting has nothing for link 1.
         for i in 0..5 {
@@ -1243,7 +1243,7 @@ mod tests {
         // No new playlist by itself: the friend wouldn't have it.
         assert!(c.along.making.is_empty());
         assert_eq!(c.links.links.len(), 2);
-        assert_eq!(lock(&c.settings).listen_channel, Some(link(2)), "older Truffles move on");
+        assert_eq!(lock(&c.settings).listen_channel, Some(link(2)), "older codas move on");
         assert_eq!(c.links_view()[0].state, LinkState::Gone);
         // One not checked yet may just be another account's: whose it is decides, not one refusal.
         c.links.get_mut(2).unwrap().owner = String::new();
@@ -1419,7 +1419,7 @@ mod tests {
         c.update_settings(|s| s.listen_share = true);
         c.cmd_listen_kick(3, true);
         let due = land(&mut c, t + 1_000);
-        assert!(due[0].1.starts_with("Listen along with me on Truffle.") && is_stop(&due[0].1));
+        assert!(due[0].1.starts_with("Listen along with me on coda.") && is_stop(&due[0].1));
         // Asking for a link while logged out is a note, not an error.
         while rx.try_recv().is_ok() {}
         c.cmd_listen_new_link("Sam".into());
@@ -1464,7 +1464,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn a_links_file_held_open_at_start_is_never_written_over_and_read_at_login() {
-        let dir = std::env::temp_dir().join(format!("truffle-links-held-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-links-held-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let mut book = crate::listen::links::LinkBook::default();
@@ -1477,12 +1477,12 @@ mod tests {
         let file = paths.listen_links_file();
         std::fs::remove_file(file.with_extension("json.bak")).unwrap();
         let before = std::fs::read(&file).unwrap();
-        // Truffle starts while another program holds the file, and there is no copy.
+        // Coda starts while another program holds the file, and there is no copy.
         let held = hold_open(&file);
         let settings = Settings { listen_channel: Some(link(2)), ..Settings::default() };
         let (mut c, _rx) = controller_at(paths, Arc::new(Mutex::new(settings)));
         assert!(c.links_held);
-        assert_eq!(c.links.live_uris(ME), vec![link(2)], "only the link older Truffles write to");
+        assert_eq!(c.links.live_uris(ME), vec![link(2)], "only the link older codas write to");
         c.save_links();
         drop(held);
         assert_eq!(std::fs::read(&file).unwrap(), before, "never written over");
@@ -1502,7 +1502,7 @@ mod tests {
         c.cmd_listen_kick(1, true);
         let (paths, settings) = (c.paths.clone(), c.settings.clone());
         drop(c);
-        // Truffle restarts before the stop went out.
+        // Coda restarts before the stop went out.
         let (mut c, _rx) = controller_at(paths, settings);
         let l = c.links.get(1).expect("still there");
         assert!(l.kicked && l.stop_owed);
@@ -1524,14 +1524,14 @@ mod tests {
         assert_eq!(channel(&c), Some(link(1)));
         c.cmd_listen_kick(1, true);
         assert_eq!(channel(&c), Some(link(2)));
-        // Saved at once, not seconds later: an older Truffle started now writes to no kicked link.
+        // Saved at once, not seconds later: an older Coda started now writes to no kicked link.
         // (The file itself isn't checked: tests running side by side share one save order.)
         assert!(c.settings_changed_at.is_none());
         c.cmd_listen_kick(2, true);
         assert_eq!(channel(&c), None);
         c.cmd_listen_kick(1, false);
         assert_eq!(channel(&c), Some(link(1)));
-        // A link an older Truffle made meanwhile is taken in at the next start.
+        // A link an older Coda made meanwhile is taken in at the next start.
         c.update_settings(|s| s.listen_channel = Some(link(5)));
         c.save_settings();
         let (paths, settings) = (c.paths.clone(), c.settings.clone());
@@ -1544,7 +1544,7 @@ mod tests {
 
     #[test]
     fn the_one_old_channel_becomes_the_first_link_and_keeps_working() {
-        let dir = std::env::temp_dir().join(format!("truffle-links-migrate-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-links-migrate-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let settings = Settings { listen_share: true, listen_channel: Some(link(3)), ..Settings::default() };
@@ -1555,7 +1555,7 @@ mod tests {
         assert!(c.paths.listen_links_file().exists(), "written at once");
         // Settings gives it no date: when it was made isn't known (not the day of the upgrade).
         assert_eq!(c.links_view()[0].made_ms, 0);
-        // Sharing stays as it was, and the friend's link is still where older Truffles write.
+        // Sharing stays as it was, and the friend's link is still where older Codas write.
         let s = lock(&c.settings).clone();
         assert_eq!((s.listen_share, s.listen_channel), (true, Some(link(3))));
         done(c);
@@ -1573,10 +1573,10 @@ mod tests {
             pl("spotify:playlist:mine", "Mine", "", true),
             pl(&link(1), "Removed one", "", true),
             pl(&link(2), "Made just now", "", true),
-            pl(&link(3), "Older Truffles'", "", true),
+            pl(&link(3), "Older codas'", "", true),
             pl(&link(4), "Renamed in Spotify", "", true),
             pl("spotify:playlist:elsewhere", listen::CHANNEL_NAME, "", true),
-            pl("spotify:playlist:worded", "Anything", "Listen along with me on Truffle. [tl1;;0;5;stop]", true),
+            pl("spotify:playlist:worded", "Anything", "Listen along with me on coda. [tl1;;0;5;stop]", true),
             pl("spotify:playlist:theirs", listen::CHANNEL_NAME, "", false),
         ];
         let shown: Vec<String> = c.playlists_for_ui().into_iter().map(|p| p.name).collect();
@@ -1586,10 +1586,10 @@ mod tests {
 
     #[test]
     fn a_links_file_damaged_once_is_never_lost_at_the_next_start() {
-        let dir = std::env::temp_dir().join(format!("truffle-links-damaged-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-links-damaged-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
-        // Alyssa's link (the one older Truffles write to) and Sam's, kicked.
+        // Alyssa's link (the one older Codas write to) and Sam's, kicked.
         let mut book = crate::listen::links::LinkBook::default();
         for (i, name) in [(1, "Alyssa"), (2, "Sam")] {
             let id = book.reserve_id();
@@ -1624,7 +1624,7 @@ mod tests {
         c.cmd_listen_remove_link(2);
         c.cmd_listen_rename_link(1, "Sam".into());
         assert_eq!(c.links, before, "nothing changed");
-        assert_eq!(lock(&c.settings).listen_channel, mirror, "nor the link older Truffles write to");
+        assert_eq!(lock(&c.settings).listen_channel, mirror, "nor the link older codas write to");
         assert!(c.along.fanout.take_due(now_ms()).is_empty(), "nothing written");
         let events: Vec<Event> = rx.try_iter().collect();
         let notes = events.iter().filter(|e| matches!(e, Event::Status(s) if s == persist::LINKS_LOCKED)).count();

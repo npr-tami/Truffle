@@ -59,7 +59,7 @@ pub struct PendingScrobble {
     #[serde(default)]
     pub attempts: u8,
     /// The Last.fm account it was recorded for (set when it is queued); only sent to that one
-    /// unless the user says otherwise. Empty: unknown (queued by an older Truffle).
+    /// unless the user says otherwise. Empty: unknown (queued by an older Coda).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user: String,
 }

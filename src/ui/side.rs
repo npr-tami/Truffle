@@ -10,7 +10,7 @@ use egui::{Button, Color32, CornerRadius, Grid, Id, RichText, Sense, Stroke, Str
 use super::{fin, kit, screens};
 use super::theme::{ACCENT_PRESETS, Palette, has_custom_colors, regular};
 use super::wallpaper::{self, FITS, GRID_W, PAD_GRID_GAP, PAD_H, SLIDES, Slide, THUMB_SIZE};
-use super::TruffleApp;
+use super::CodaApp;
 use crate::config::{AppIcon, CustomColors, ThemeMode, Wallpaper};
 
 /// A wallpaper slider's row: the slider, the gap after it and its number's box (Glint's, a little
@@ -23,7 +23,7 @@ const NAME_W: f32 = 196.0;
 /// The title's room in a row whose control takes what's left.
 const TITLE_ROOM: f32 = 110.0;
 
-impl TruffleApp {
+impl CodaApp {
     /// "App icon": the silver or the black turntable on the window, taskbar and tray, or the one
     /// that stands out on the taskbar. A change shows at once.
     pub(super) fn app_icon_row(&mut self, ui: &mut Ui) {

@@ -94,7 +94,7 @@ pub fn playlist_id_from_uri(input: &str) -> Option<&str> {
 fn parse_playlist_id(input: &str) -> Result<&str> {
     playlist_id_from_uri(input).ok_or_else(|| {
         log::warn!("not a playlist id: {input:?}");
-        anyhow!("That isn't a Spotify playlist Truffle can edit.")
+        anyhow!("That isn't a Spotify playlist coda can edit.")
     })
 }
 
@@ -115,7 +115,7 @@ fn normalize_client_id(client_id: &str) -> Result<String> {
 
 fn build_http_client() -> Result<reqwest::Client> {
     reqwest::Client::builder()
-        .user_agent(concat!("Truffle/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("coda/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
         .pool_idle_timeout(Duration::from_secs(60))
@@ -123,7 +123,7 @@ fn build_http_client() -> Result<reqwest::Client> {
         .build()
         .map_err(|e| {
             log::error!("could not build the HTTP client: {e}");
-            anyhow!("Truffle couldn't set up its connection to Spotify ({e}).")
+            anyhow!("coda couldn't set up its connection to Spotify ({e}).")
         })
 }
 
@@ -195,7 +195,7 @@ impl WebApi {
             if stored.client_id != client_id {
                 log::info!("stored Web API sign-in belongs to another client id; ignoring it");
             } else if !stored.has_scopes(SCOPES) {
-                log::info!("stored Web API sign-in lacks permissions Truffle now needs; a new sign-in is required");
+                log::info!("stored Web API sign-in lacks permissions coda now needs; a new sign-in is required");
                 unusable = Some(
                     ReconnectRequired::new(
                         "Playlist editing needs an extra permission from Spotify. Open Settings and click \
@@ -340,7 +340,7 @@ impl WebApi {
             .await
             .map_err(|e| {
                 log::error!("cover preparation task failed: {e}");
-                anyhow!("Truffle couldn't process the picture. Please try a different one.")
+                anyhow!("coda couldn't process the picture. Please try a different one.")
             })??;
         let encoded = BASE64_STANDARD.encode(&jpeg);
         drop(jpeg);

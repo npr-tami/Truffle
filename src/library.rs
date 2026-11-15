@@ -24,7 +24,7 @@
 //!
 //! Liked Songs are read through the collection service first: context-resolve has the server
 //! resolve the whole collection in its first request, which times out (504) at tens of thousands
-//! of songs, while the collection service pages with a size Truffle picks, retries a page on its
+//! of songs, while the collection service pages with a size Coda picks, retries a page on its
 //! own, gives the dates songs were liked, and a sync token. With that token kept beside the saved
 //! copy, a later read asks only for the changes since (one request when nothing changed).
 //!
@@ -96,7 +96,7 @@ struct Inner {
     liked_read: tokio::sync::Mutex<()>,
     /// Header details of the album and artist pages loaded so far.
     browse_info: Mutex<HashMap<Source, crate::model::SourceInfo>>,
-    /// Times each song was played (the controller's count), for Truffle's mixes.
+    /// Times each song was played (the controller's count), for Coda's mixes.
     play_counts: Mutex<Arc<HashMap<String, u32>>>,
     /// Playlist changes go out one at a time (two quick adds would otherwise clash).
     write_gate: tokio::sync::Mutex<()>,
@@ -160,25 +160,25 @@ fn same_user(a: &str, b: &str) -> bool {
 fn require_username(session: &Session) -> Result<String> {
     let username = session.username();
     if username.is_empty() {
-        bail!("Truffle isn't connected to Spotify yet. Please log in first.");
+        bail!("coda isn't connected to Spotify yet. Please log in first.");
     }
     Ok(username)
 }
 
 fn reason(err: &CoreError, session: &Session) -> &'static str {
     if session.is_invalid() {
-        return "The connection to Spotify was lost. Truffle will reconnect; please try again in a moment.";
+        return "The connection to Spotify was lost. coda will reconnect; please try again in a moment.";
     }
     match err.kind {
         ErrorKind::Unavailable | ErrorKind::DeadlineExceeded | ErrorKind::Unknown => {
             "Spotify could not be reached. Check your internet connection and try again."
         }
-        ErrorKind::ResourceExhausted => "Spotify asked Truffle to slow down. Please wait a minute and try again.",
+        ErrorKind::ResourceExhausted => "Spotify asked coda to slow down. Please wait a minute and try again.",
         ErrorKind::Aborted => "It changed while it was loading. Please try again.",
         ErrorKind::Unauthenticated => "Spotify did not accept your login. Please log out and log in again.",
         ErrorKind::PermissionDenied => "Spotify says your account doesn't have access to it.",
         ErrorKind::NotFound => "Spotify could not find it; it may have been deleted.",
-        _ => "Spotify sent an answer Truffle didn't understand. Please try again later.",
+        _ => "Spotify sent an answer coda didn't understand. Please try again later.",
     }
 }
 
@@ -644,12 +644,12 @@ impl Library {
         }
     }
 
-    /// The play counts Truffle's mixes are made with.
+    /// The play counts Coda's mixes are made with.
     pub fn set_play_counts(&self, counts: HashMap<String, u32>) {
         *lock(&self.inner.play_counts) = Arc::new(counts);
     }
 
-    /// Truffle's mixes that have songs, for Home: the fixed ones, then one for each of `artists`
+    /// Coda's mixes that have songs, for Home: the fixed ones, then one for each of `artists`
     /// (uri, name).
     pub async fn mixes(&self, artists: &[(String, String)]) -> Vec<crate::model::MixInfo> {
         let quiet = |_: usize, _: Option<usize>| {};
@@ -767,7 +767,7 @@ impl Library {
         Some((artist_likes_of(artist, &songs), whole))
     }
 
-    /// One of Truffle's mixes without waiting: made from the Liked Songs list kept in memory or on
+    /// One of Coda's mixes without waiting: made from the Liked Songs list kept in memory or on
     /// disk, with `liked` (the likes as they are now) applied once it is known. `None` when there
     /// is no saved list yet, or `id` isn't a mix made from Liked Songs. Spotify's list can take
     /// minutes to read again for a big library, so an opened mix shows this first.
@@ -801,7 +801,7 @@ impl Library {
         })
         .await
         .map_err(|e| friendly("Couldn't load the profile.", e, &session))?;
-        let v: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| anyhow!("Spotify sent a profile Truffle didn't understand."))?;
+        let v: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| anyhow!("Spotify sent a profile coda didn't understand."))?;
         let mut page = profiles::user_page(username, &v);
         // Not in the profile: asked the way the web player asks.
         if page.is_following.is_none() && !same_user(username, &session.username()) {
@@ -850,7 +850,7 @@ impl Library {
         })
         .await
         .map_err(|e| friendly(if followers { "Couldn't load the followers." } else { "Couldn't load who they follow." }, e, &session))?;
-        let v: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| anyhow!("Spotify sent a list Truffle didn't understand."))?;
+        let v: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| anyhow!("Spotify sent a list coda didn't understand."))?;
         Ok(crate::model::People { username: username.to_owned(), followers, list: profiles::people(&v) })
     }
 
@@ -1179,7 +1179,7 @@ impl Library {
                     && c.revision == revision
                     && has_dates(&c.tracks)
                 {
-                    // Saved before Truffle kept the sync token: keep it now, so the next start only
+                    // Saved before Coda kept the sync token: keep it now, so the next start only
                     // asks for the changes.
                     if c.sync_token.is_empty() && !set.sync_token.is_empty() {
                         self.store(&source, revision, set.sync_token.clone(), username, c.tracks.clone());
@@ -1271,7 +1271,7 @@ fn like_error(e: &CoreError) -> likes::SendError {
 }
 
 /// The wait librespot's own limit names ("rate limited for at least another 7 seconds"). Spotify's
-/// Retry-After up to 10 s is waited inside librespot; a longer one doesn't reach Truffle.
+/// Retry-After up to 10 s is waited inside librespot; a longer one doesn't reach Coda.
 fn rate_limit_wait(e: &CoreError) -> Option<Duration> {
     let text = e.error.to_string();
     let secs: u64 = text.split("another ").nth(1)?.split_whitespace().next()?.parse().ok()?;
@@ -1286,7 +1286,7 @@ pub fn is_permanent(err: &anyhow::Error) -> bool {
         .any(|e| matches!(e.kind, ErrorKind::NotFound | ErrorKind::PermissionDenied | ErrorKind::InvalidArgument))
 }
 
-/// True when Spotify (or librespot's own limit, shared by all of Truffle's calls) said to slow
+/// True when Spotify (or librespot's own limit, shared by all of Coda's calls) said to slow
 /// down.
 pub fn is_rate_limited(err: &anyhow::Error) -> bool {
     err.chain().filter_map(|e| e.downcast_ref::<CoreError>()).any(|e| e.kind == ErrorKind::ResourceExhausted)
@@ -1346,7 +1346,7 @@ fn reusable(cached: Option<&CachedList>) -> HashMap<&str, &TrackInfo> {
 
 /// Turn an ordered URI list (duplicates kept) into track infos: local files and reused entries
 /// locally, everything else through batched metadata requests.
-/// Whether a saved list has its "added" dates (lists saved before Truffle kept them don't: those
+/// Whether a saved list has its "added" dates (lists saved before Coda kept them don't: those
 /// are read again once).
 fn has_dates(tracks: &[TrackInfo]) -> bool {
     tracks.is_empty() || tracks.iter().any(|t| t.added_at != 0 || t.is_local)
@@ -1506,7 +1506,7 @@ mod gate_tests {
     }
 }
 
-/// Truffle's mixes: the songs played most, the newest likes, old likes not played, one artist's.
+/// Coda's mixes: the songs played most, the newest likes, old likes not played, one artist's.
 pub const MIX_ON_REPEAT: &str = "on-repeat";
 pub const MIX_FRESH: &str = "fresh";
 pub const MIX_FORGOTTEN: &str = "forgotten";
@@ -1569,7 +1569,7 @@ pub fn mix_of(id: &str, liked: &[TrackInfo], counts: &HashMap<String, u32>) -> V
     } else if id == MIX_FRESH {
         playable.take(MIX_LEN).cloned().collect()
     } else if id == MIX_FORGOTTEN {
-        // From the older half of the likes, never played in Truffle; spread over all of it.
+        // From the older half of the likes, never played in Coda; spread over all of it.
         let old: Vec<&TrackInfo> = liked.iter().skip(liked.len() / 2).filter(|t| t.playable && !t.is_local && plays(t) == 0).collect();
         let step = (old.len() / MIX_LEN).max(1);
         old.into_iter().step_by(step).take(MIX_LEN).cloned().collect()

@@ -152,7 +152,7 @@ fn pending(name: &str, age_secs: i64) -> PendingScrobble {
     pending_for(name, age_secs, "listener")
 }
 
-/// A play recorded for `user` (empty: queued by an older Truffle, account unknown).
+/// A play recorded for `user` (empty: queued by an older Coda, account unknown).
 fn pending_for(name: &str, age_secs: i64, user: &str) -> PendingScrobble {
     PendingScrobble {
         track: ScrobbleTrack {
@@ -191,7 +191,7 @@ struct Harness {
 
 impl Harness {
     async fn new(name: &str, responder: Responder, setup: Setup) -> Self {
-        let dir = std::env::temp_dir().join(format!("truffle-lastfm-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-lastfm-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         std::fs::create_dir_all(&paths.config).unwrap();
@@ -304,7 +304,7 @@ fn assert_signed(r: &Seen) {
     assert_eq!(api::sign(&p, SECRET), sig);
     assert_eq!(p.get("api_key").map(String::as_str), Some(KEY));
     assert!(!r.body.contains(SECRET), "the shared secret must never be sent");
-    assert!(r.head.contains("user-agent: truffle/"), "{}", r.head);
+    assert!(r.head.contains("user-agent: coda/"), "{}", r.head);
     assert!(r.head.starts_with("post "));
 }
 
@@ -771,7 +771,7 @@ async fn discarding_while_disconnected_deletes_the_waiting_plays() {
 }
 
 #[tokio::test]
-async fn plays_queued_by_an_older_truffle_belong_to_the_saved_sign_in() {
+async fn plays_queued_by_an_older_coda_belong_to_the_saved_sign_in() {
     let setup = Setup { queued: vec![pending_for("old format", 600, "")], ..Setup::default() };
     let mut h = Harness::new("adopt", responder(|p| (200, accepted(batch_size(p)))), setup).await;
     h.scrobbler.start(h.t0);

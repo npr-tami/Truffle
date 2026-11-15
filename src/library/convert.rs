@@ -1,4 +1,4 @@
-//! Pure conversions from Spotify protobuf messages to Truffle's model types.
+//! Pure conversions from Spotify protobuf messages to Coda's model types.
 //!
 //! Everything here is synchronous, does no I/O and never panics on missing protobuf fields:
 //! the generated accessors return defaults for absent optional fields, and every lookup that
@@ -61,7 +61,7 @@ pub fn fingerprint<'a>(uris: impl IntoIterator<Item = &'a str>) -> String {
 pub struct Market {
     /// Two-letter country code of the account, empty if not known yet.
     pub country: String,
-    /// Account catalogue ("premium" for every account that can use Truffle).
+    /// Account catalogue ("premium" for every account that can use Coda).
     pub catalogue: String,
     pub filter_explicit: bool,
     pub now: Date,
@@ -254,7 +254,7 @@ pub fn episode_info(uri: &str, e: &pb::Episode, market: &Market, respect_files: 
     }
 }
 
-/// Entry for something Spotify no longer has (or that Truffle can't play).
+/// Entry for something Spotify no longer has (or that Coda can't play).
 pub fn unavailable_info(uri: &str) -> TrackInfo {
     TrackInfo {
         uri: uri.to_owned(),

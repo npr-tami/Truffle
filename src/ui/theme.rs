@@ -13,16 +13,16 @@ use super::util::{contrast_text, mix};
 use crate::config::{CustomColors, ThemeMode};
 
 /// Inter SemiBold (600): headings, titles and emphasised text.
-pub const BOLD: &str = "truffle-bold";
+pub const BOLD: &str = "coda-bold";
 /// Inter Medium (500): nav rows, tabs, chips, names under covers.
-pub const MEDIUM: &str = "truffle-medium";
+pub const MEDIUM: &str = "coda-medium";
 /// Inter Bold (700): the big page titles and counts.
-pub const HEAVY: &str = "truffle-heavy";
+pub const HEAVY: &str = "coda-heavy";
 /// Segoe UI (400), Bold (700) and Black (900): the Now playing view, drawn in Windows' own font as in
 /// its design (Inter where Segoe UI is missing).
-pub const SEGOE: &str = "truffle-segoe";
-pub const SEGOE_BOLD: &str = "truffle-segoe-bold";
-pub const SEGOE_BLACK: &str = "truffle-segoe-black";
+pub const SEGOE: &str = "coda-segoe";
+pub const SEGOE_BOLD: &str = "coda-segoe-bold";
+pub const SEGOE_BLACK: &str = "coda-segoe-black";
 
 /// Segoe UI (400).
 pub fn segoe(size: f32) -> FontId {
@@ -129,7 +129,7 @@ const DARK: u8 = 2;
 /// Reads Windows' light or dark mode for apps again (one quick registry read). Returns true when
 /// it changed since the last reading.
 pub fn reread_windows_mode() -> bool {
-    // A Windows that doesn't say gets Truffle's usual dark.
+    // A Windows that doesn't say gets Coda's usual dark.
     let now = if crate::platform::windows_apps_dark().unwrap_or(true) { DARK } else { LIGHT };
     let before = WINDOWS_MODE.swap(now, Ordering::Relaxed);
     before != UNREAD && before != now
@@ -458,7 +458,7 @@ pub fn apply_style(ctx: &egui::Context, p: &Palette, compact: bool) {
 }
 
 fn palette_id() -> egui::Id {
-    egui::Id::new("truffle-palette")
+    egui::Id::new("coda-palette")
 }
 
 /// The palette `apply_style` last set, for parts drawn with only a `Ui` at hand (menus, dialogs).
@@ -612,7 +612,7 @@ impl ScriptFonts {
     fn load(&self, ctx: &egui::Context, script: Script) {
         let tx = self.tx.clone();
         let ctx = ctx.clone();
-        let spawned = std::thread::Builder::new().name("truffle-font".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-font".into()).spawn(move || {
             let dir = windows_fonts_dir();
             let found = script
                 .candidates()
@@ -637,7 +637,7 @@ impl ScriptFonts {
     }
 }
 
-/// Every font family Truffle draws with: egui's two, the Inter weights and the Now playing view's
+/// Every font family Coda draws with: egui's two, the Inter weights and the Now playing view's
 /// Segoe UI ones.
 fn families() -> [FontFamily; 8] {
     let name = |n: &str| FontFamily::Name(n.into());
@@ -841,7 +841,7 @@ mod tests {
                 assert!(c >= 4.5, "{}: the warning is {c:.2}", named(&p));
             }
         }
-        // The dark theme's presets, and the red Truffle starts with, keep their colour.
+        // The dark theme's presets, and the red Coda starts with, keep their colour.
         for c in ACCENT_PRESETS.iter().map(|&(c, _)| rgb(c)).chain([Color32::from_rgb(227, 38, 45)]) {
             assert_eq!(Palette::build(ThemeMode::Dark, c, None).accent_ink, c);
         }

@@ -14,7 +14,7 @@ use super::theme::{bold, heavy, medium, regular};
 use super::tracks::{liked_color, one_line};
 use super::util::fmt_thousands;
 use super::wide;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::Source;
 use crate::text::{contains_folded, fold};
 
@@ -82,7 +82,7 @@ const FLOW_TOP: f32 = 16.0;
 const FLOW_UNDER: f32 = 60.0;
 const FLOW_GAP: f32 = 14.0;
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn show_home(&mut self) {
         self.middle_tab = MiddleTab::Home;
     }
@@ -493,7 +493,7 @@ impl TruffleApp {
         }
         let mood = self.home.mood;
         let needle = mood.map(fold);
-        // Truffle's own mixes first (they have no mood), then the Spotify mixes in the library.
+        // Coda's own mixes first (they have no mood), then the Spotify mixes in the library.
         let own: Vec<Item> = if mood.is_none() {
             self.mixes
                 .iter()
@@ -568,7 +568,7 @@ impl TruffleApp {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// New releases: albums and singles of the last 90 days by the most liked artists, `rows` rows of
     /// as many as fit (see [`card_min`]); NEW on the ones of the last two weeks (`.tag`).
     #[allow(clippy::too_many_arguments)]

@@ -1,8 +1,8 @@
 //! librespot `Sink` on top of rodio that survives missing and disappearing output devices, and
-//! applies Truffle's equalizer and fades.
+//! applies Coda's equalizer and fades.
 //!
 //! - The output stream is opened on `start` (the Windows default device at that moment) and
-//!   closed on `stop`, so a paused Truffle holds no audio device and costs no CPU, and pressing
+//!   closed on `stop`, so a paused Coda holds no audio device and costs no CPU, and pressing
 //!   play after switching speakers/headphones uses the new default.
 //! - Opening never panics and never fails: if there is no device the problem is reported and the
 //!   output stays closed, so the first `write` fails and librespot pauses (see `start`).
@@ -37,7 +37,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(10);
 const GAIN_BLOCK: u32 = 128;
 
 const NO_DEVICE: &str = "No speakers or headphones were found. Connect an audio device and press play.";
-const OPEN_FAILED: &str = "Truffle couldn't use your speakers or headphones. Check the Windows sound settings and press play.";
+const OPEN_FAILED: &str = "coda couldn't use your speakers or headphones. Check the Windows sound settings and press play.";
 const DEVICE_LOST: &str = "The audio device stopped responding (was it unplugged?). Press play to continue on your current speakers or headphones.";
 
 /// Last audio problem, in plain language, for the controller to show.
@@ -106,7 +106,7 @@ impl Output {
     }
 }
 
-pub(super) struct TruffleSink {
+pub(super) struct CodaSink {
     output: Option<Output>,
     problem: ProblemSlot,
     gain: Arc<OutputGain>,
@@ -118,7 +118,7 @@ pub(super) struct TruffleSink {
     open: fn() -> Result<Output, String>,
 }
 
-impl TruffleSink {
+impl CodaSink {
     pub(super) fn new(parts: SinkParts) -> Self {
         Self::with_opener(parts, Output::open)
     }
@@ -141,7 +141,7 @@ impl TruffleSink {
     }
 }
 
-impl Sink for TruffleSink {
+impl Sink for CodaSink {
     fn start(&mut self) -> SinkResult<()> {
         if self.output.as_ref().is_some_and(|o| o.failed.load(Ordering::Acquire)) {
             self.output = None;
@@ -205,12 +205,12 @@ impl Sink for TruffleSink {
     }
 }
 
-/// The same output for Truffle's own player, whose songs may have another rate.
-pub(super) struct PcmOutput(TruffleSink);
+/// The same output for Coda's own player, whose songs may have another rate.
+pub(super) struct PcmOutput(CodaSink);
 
 impl PcmOutput {
     pub(super) fn new(parts: SinkParts) -> Self {
-        Self(TruffleSink::new(parts))
+        Self(CodaSink::new(parts))
     }
 }
 
@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn starting_without_a_device_pauses_instead_of_failing() {
         let problem = ProblemSlot::default();
-        let mut sink = TruffleSink::with_opener(parts(problem.clone()), no_device);
+        let mut sink = CodaSink::with_opener(parts(problem.clone()), no_device);
         sink.start().expect("start while loading");
         sink.start().expect("start when playback begins");
         let mut converter = Converter::new(None);
@@ -406,7 +406,7 @@ mod tests {
         eq_settings.gains_db[..3].copy_from_slice(&[6.0, 5.0, 4.0]);
         let mut parts = parts(ProblemSlot::default());
         parts.eq = Arc::new(EqControl::new(&eq_settings));
-        let mut sink = TruffleSink::with_opener(parts, no_device);
+        let mut sink = CodaSink::with_opener(parts, no_device);
         let mut bass: Vec<f64> =
             (0..44_100).flat_map(|n| [0.3 * (2.0 * std::f64::consts::PI * 50.0 * f64::from(n) / 44_100.0).sin(); 2]).collect();
         sink.eq.process(&mut bass);
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn another_rate_plays_at_its_own_speed_and_redesigns_the_equalizer() {
-        let mut sink = TruffleSink::with_opener(parts(ProblemSlot::default()), no_device);
+        let mut sink = CodaSink::with_opener(parts(ProblemSlot::default()), no_device);
         assert_eq!(sink.eq.rate(), f64::from(SAMPLE_RATE));
         sink.set_rate(48_000);
         assert_eq!(sink.eq.rate(), 48_000.0);

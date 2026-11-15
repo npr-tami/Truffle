@@ -218,7 +218,7 @@ struct EditDetails {
     original_description: String,
 }
 
-/// Follows and unfollows of one artist made in Truffle: the state shown (the latest asked for), its
+/// Follows and unfollows of one artist made in Coda: the state shown (the latest asked for), its
 /// number, the state before the first of them, the state Spotify last confirmed, and the artist.
 #[derive(Clone)]
 struct FollowChange {
@@ -229,7 +229,7 @@ struct FollowChange {
     item: crate::model::CollectionItem,
 }
 
-pub struct TruffleApp {
+pub struct CodaApp {
     ctx: egui::Context,
     commands: UnboundedSender<Command>,
     events: Receiver<Event>,
@@ -403,7 +403,7 @@ pub struct TruffleApp {
     follow_generation: u64,
     /// The account the collection, mixes, New releases and follows were worked out for.
     collection_account: Option<String>,
-    /// Truffle's own mixes (Home's For you).
+    /// Coda's own mixes (Home's For you).
     mixes: Arc<Vec<crate::model::MixInfo>>,
     /// Listen along: whom the user listens along with, the Friends list (and when it was asked
     /// for), sharing, the friends' links (the Friends tab) with the dialog open over them and the
@@ -432,7 +432,7 @@ pub struct TruffleApp {
     fonts: ScriptFonts,
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         commands: UnboundedSender<Command>,
@@ -1062,7 +1062,7 @@ impl TruffleApp {
                     self.forget_account_data();
                     self.collection_account = account;
                 }
-                // The Albums and Artists pages, Truffle's mixes and New releases are worked out
+                // The Albums and Artists pages, Coda's mixes and New releases are worked out
                 // once, in the background, right after logging in.
                 if !self.collection_asked {
                     self.collection_asked = true;
@@ -1237,7 +1237,7 @@ impl TruffleApp {
                 self.source_info.insert(info.source.clone(), info);
             }
             Event::Listening(status) => self.listening = status,
-            // (Its link is the one older Truffles write to: the Friends tab shows every link instead.)
+            // (Its link is the one older Codas write to: the Friends tab shows every link instead.)
             Event::ListenShare { on, .. } => self.listen_share = on,
             Event::ListenLinks(list) => {
                 self.fonts.scan_all(ctx, list.iter().map(|l| l.name.as_str()));
@@ -1616,7 +1616,7 @@ impl TruffleApp {
         self.cover_picker_open = true;
         let tx = self.cover_tx.clone();
         let ctx = ctx.clone();
-        let spawned = std::thread::Builder::new().name("truffle-file-dialog".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-file-dialog".into()).spawn(move || {
             let path = rfd::FileDialog::new()
                 .set_title("Choose a cover image")
                 .add_filter("Images", &["jpg", "jpeg", "png", "webp"])
@@ -1654,7 +1654,7 @@ fn until_next_second(until: Instant, now: Instant) -> Duration {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Periodic repaints while something on screen moves on its own. Only called for drawn
     /// frames, so a hidden or minimized window never ticks.
     fn schedule_repaint(&self, ctx: &egui::Context) {
@@ -1667,7 +1667,7 @@ impl TruffleApp {
     }
 }
 
-impl eframe::App for TruffleApp {
+impl eframe::App for CodaApp {
     /// Runs every frame, also while the window is hidden in the tray or minimized (then without
     /// `ui`): the one place controller events and platform actions are handled.
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

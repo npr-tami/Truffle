@@ -7,7 +7,7 @@
 //! - [`Fanout`]: one [`Outbox`] per link and a shared write budget, so ten links never use up the
 //!   calls librespot allows the whole session (300 per 30 s, and a write is 2 of them).
 //!
-//! A kick is an ordinary stop written once, then nothing: the friend's Truffle sees the host stop
+//! A kick is an ordinary stop written once, then nothing: the friend's Coda sees the host stop
 //! playing, as when they quit. Every link has the same playlist name; the friend's name stays here.
 
 use std::collections::{BTreeMap, HashSet};
@@ -22,7 +22,7 @@ pub const MAX_LINKS: usize = 10;
 pub const NAME_MAX: usize = 30;
 /// The name of the one channel from before links (it becomes the first link).
 pub const FIRST_LINK: &str = "First link";
-/// The name of a channel an older Truffle made after links came.
+/// The name of a channel an older Coda made after links came.
 pub const OLDER_LINK: &str = "Older link";
 /// Removed links kept as tombstones (the oldest go first).
 const REMOVED_KEEP: usize = 100;
@@ -93,8 +93,8 @@ pub struct LinkBook {
 }
 
 impl LinkBook {
-    /// Takes in the channel older Truffles know (`Settings::listen_channel`) if the book doesn't
-    /// know it: the one channel from before links becomes the "First link", one an older Truffle
+    /// Takes in the channel older Codas know (`Settings::listen_channel`) if the book doesn't
+    /// know it: the one channel from before links becomes the "First link", one an older Coda
     /// made later an "Older link". When it was made isn't known, so it has no date. Removed and
     /// kicked links are known, so neither comes back this way. Returns whether the book changed.
     pub fn take_in(&mut self, legacy: Option<&str>) -> bool {
@@ -129,7 +129,7 @@ impl LinkBook {
         self.links.iter().filter(|l| l.live(me)).map(|l| l.uri.clone()).collect()
     }
 
-    /// The link older Truffles write to (`Settings::listen_channel`): the first that isn't kicked.
+    /// The link older Codas write to (`Settings::listen_channel`): the first that isn't kicked.
     pub fn mirror(&self, me: &str) -> Option<String> {
         self.links.iter().find(|l| l.live(me)).map(|l| l.uri.clone())
     }
@@ -551,10 +551,10 @@ mod tests {
         assert!(b.take_in(Some(OLD)));
         assert_eq!(b.links.len(), 1);
         let l = &b.links[0];
-        // When it was made isn't known: no date (not the day Truffle took it in).
+        // When it was made isn't known: no date (not the day Coda took it in).
         assert_eq!((l.id, l.name.as_str(), l.uri.as_str(), l.owner.as_str(), l.made_ms), (1, FIRST_LINK, OLD, "", 0));
         assert!(!l.kicked && !l.gone && !l.stop_owed);
-        // Not checked yet, so it counts as the logged-in account's, and older Truffles keep it.
+        // Not checked yet, so it counts as the logged-in account's, and older Codas keep it.
         assert_eq!(b.live_uris(ME), vec![OLD.to_owned()]);
         assert_eq!(b.mirror(ME).as_deref(), Some(OLD));
         // No old channel: nothing to take in.
@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn a_channel_an_older_truffle_made_is_taken_in_once() {
+    fn a_channel_an_older_coda_made_is_taken_in_once() {
         let mut b = book(2);
         let made = uri(9);
         assert!(b.take_in(Some(&made)));
@@ -587,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn the_old_truffles_link_is_the_first_one_not_kicked() {
+    fn the_old_codas_link_is_the_first_one_not_kicked() {
         let mut b = book(3);
         assert_eq!(b.mirror(ME), Some(uri(1)));
         b.kick(1, true, ME);
@@ -595,7 +595,7 @@ mod tests {
         b.get_mut(2).unwrap().gone = true;
         assert_eq!(b.mirror(ME), Some(uri(3)));
         b.kick(3, true, ME);
-        assert_eq!(b.mirror(ME), None, "every link kicked: older Truffles get none");
+        assert_eq!(b.mirror(ME), None, "every link kicked: older codas get none");
         b.kick(1, false, ME);
         assert_eq!(b.mirror(ME), Some(uri(1)));
         // Another account's link is never the mirror.
@@ -687,7 +687,7 @@ mod tests {
         let json = serde_json::to_string(&b).unwrap();
         let back: LinkBook = serde_json::from_str(&json).unwrap();
         assert_eq!(back, b);
-        // A newer Truffle's fields are ignored, and missing ones take their defaults.
+        // A newer Coda's fields are ignored, and missing ones take their defaults.
         let odd: LinkBook = serde_json::from_str(&format!(
             r#"{{"links":[{{"id":3,"name":"Sam","uri":"{u}","last_here_ms":5}}],"next_id":4,"later":true}}"#,
             u = uri(3)
@@ -938,7 +938,7 @@ mod tests {
     #[test]
     fn the_kick_text_reads_like_an_ordinary_stop() {
         let kick = stop(1_761_400_000_000);
-        assert_eq!(kick, "Listen along with me on Truffle. [tl1;;0;1761400000000;stop]");
+        assert_eq!(kick, "Listen along with me on coda. [tl1;;0;1761400000000;stop]");
         assert!(!kick.to_lowercase().contains("kick"));
         assert!(is_stop(&kick) && is_stop(&off_description(1)) && !is_stop(&play(1)));
     }

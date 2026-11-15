@@ -210,13 +210,13 @@ pub fn truncate_utf16(s: &str, max_units: usize) -> String {
 /// Tray tooltips hold 127 characters plus the terminator.
 const TOOLTIP_MAX: usize = 127;
 
-/// "Truffle — <song> · <artist>", or just "Truffle" when nothing is loaded.
+/// "Coda — <song> · <artist>", or just "Coda" when nothing is loaded.
 pub fn tray_tooltip(track: Option<&NowPlaying>) -> String {
-    let Some(track) = track else { return "Truffle".to_owned() };
+    let Some(track) = track else { return "coda".to_owned() };
     let text = if track.artist.is_empty() {
-        format!("Truffle — {}", track.title)
+        format!("coda — {}", track.title)
     } else {
-        format!("Truffle — {} · {}", track.title, track.artist)
+        format!("coda — {} · {}", track.title, track.artist)
     };
     truncate_utf16(&text, TOOLTIP_MAX)
 }
@@ -365,8 +365,8 @@ mod tests {
             cover: None,
             duration_ms: 1,
         };
-        assert_eq!(tray_tooltip(Some(&np)), "Truffle — Song · Artist");
-        assert_eq!(tray_tooltip(None), "Truffle");
+        assert_eq!(tray_tooltip(Some(&np)), "coda — Song · Artist");
+        assert_eq!(tray_tooltip(None), "coda");
         let long = NowPlaying { title: "x".repeat(400), ..np.clone() };
         assert!(utf16_len(&tray_tooltip(Some(&long))) <= 127);
         assert_eq!(now_playing_label(Some(&np), Status::Paused), "Song — Artist (paused)");

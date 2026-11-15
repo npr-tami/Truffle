@@ -11,7 +11,7 @@ use egui::{Id, Ui};
 
 use super::kit;
 use super::util::fmt_thousands;
-use super::{TruffleApp, Undo};
+use super::{CodaApp, Undo};
 use crate::model::{Command, PlayStatus, ShuffleRules};
 
 /// One turn of the record, in seconds: slower than a real 33 1/3 (1.8 s), which looks busy on
@@ -49,7 +49,7 @@ impl Spin {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn reshuffle(&mut self) {
         self.send(Command::Reshuffle);
         let left = self.deck.as_ref().map_or(0, |d| d.order.len().saturating_sub(d.now + 1));

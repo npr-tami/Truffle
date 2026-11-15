@@ -1,9 +1,9 @@
-//! Embeds the app icon (`assets/truffle.ico`, resource id 1) and version information into
-//! truffle.exe. Windows targets only. A missing resource compiler (rc.exe from the Windows SDK)
-//! never fails the build: Truffle then builds without an exe icon and a cargo warning says why.
+//! Embeds the app icon (`assets/coda.ico`, resource id 1) and version information into
+//! coda.exe. Windows targets only. A missing resource compiler (rc.exe from the Windows SDK)
+//! never fails the build: Coda then builds without an exe icon and a cargo warning says why.
 //! The window, taskbar and tray icons don't depend on this (they come from the embedded PNGs).
 //!
-//! Also hands the app its build date for Settings > About (`TRUFFLE_BUILD_DATE`, "25 Oct 2026",
+//! Also hands the app its build date for Settings > About (`CODA_BUILD_DATE`, "25 Oct 2026",
 //! UTC), on every target.
 
 use std::path::Path;
@@ -17,8 +17,8 @@ fn main() {
     // Run again whenever the code changes, so the date is the day of the build that made the exe.
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
-    println!("cargo:rustc-env=TRUFFLE_BUILD_DATE={}", build_date::date_text(build_day()));
-    println!("cargo:rerun-if-changed=assets/truffle.ico");
+    println!("cargo:rustc-env=CODA_BUILD_DATE={}", build_date::date_text(build_day()));
+    println!("cargo:rerun-if-changed=assets/coda.ico");
     // The version info is taken from the package version.
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=RC_PATH");
@@ -38,7 +38,7 @@ fn main() {
 
 fn embed_resources() -> Result<(), String> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
-    let icon = Path::new(&manifest_dir).join("assets").join("truffle.ico");
+    let icon = Path::new(&manifest_dir).join("assets").join("coda.ico");
     if !icon.is_file() {
         return Err(format!("{} is missing (run `cargo run --example make_icon`)", icon.display()));
     }
@@ -48,11 +48,11 @@ fn embed_resources() -> Result<(), String> {
     // Windows shows FileDescription as the app's name (Task Manager, Startup apps, the volume
     // mixer, the media overlay), so it is just the name; the tagline goes in Comments.
     res.set_icon(icon)
-        .set("ProductName", "Truffle")
-        .set("FileDescription", "Truffle")
+        .set("ProductName", "coda")
+        .set("FileDescription", "coda")
         .set("Comments", "Lightweight Spotify player")
-        .set("InternalName", "truffle")
-        .set("OriginalFilename", "truffle.exe");
+        .set("InternalName", "coda")
+        .set("OriginalFilename", "coda.exe");
     res.compile().map_err(|e| {
         let hint = if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
             "install the Windows SDK (Visual Studio Installer, \"Desktop development with C++\") \
@@ -75,7 +75,7 @@ fn build_day() -> i64 {
 
 fn warn(reason: &str) {
     println!(
-        "cargo:warning=truffle.exe is built without its icon and version info: {reason}. \
+        "cargo:warning=coda.exe is built without its icon and version info: {reason}. \
          The app works normally."
     );
 }

@@ -11,7 +11,7 @@ use egui::{Color32, Id, Key, PointerButton, Sense, TextEdit, Ui, pos2, vec2};
 use super::fin;
 use super::theme::Palette;
 
-use super::TruffleApp;
+use super::CodaApp;
 use crate::model::{AlreadyIn, Command};
 
 /// What a playlist's right-click menu asked for.
@@ -23,7 +23,7 @@ pub(super) enum RowMenu {
     AskRemove(String),
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Songs dropped on a playlist (a row or a sleeve) go to its end. Local files can't.
     pub(super) fn add_dropped_songs(&mut self, playlist_uri: String, mut uris: Vec<String>) {
         uris.retain(|u| !u.starts_with("spotify:local:"));

@@ -72,7 +72,7 @@ impl DiscordState {
                 "That application ID doesn't look right. It's the long number shown as \"Application ID\" in the Discord Developer Portal."
             }
             DiscordState::Connecting => "Connecting to Discord…",
-            DiscordState::NotRunning => "Discord isn't running. Truffle will connect when it starts.",
+            DiscordState::NotRunning => "Discord isn't running. coda will connect when it starts.",
             DiscordState::Connected => "Connected",
             DiscordState::Rejected => "Discord didn't accept this application ID. Check it in the Discord Developer Portal.",
             DiscordState::UpdateRejected => {
@@ -219,7 +219,7 @@ impl DiscordHandle {
         let state = Arc::new(Mutex::new(DiscordState::Connecting));
         let worker = Worker { state: state.clone(), ctx, timing };
         std::thread::Builder::new()
-            .name("truffle-discord".to_owned())
+            .name("coda-discord".to_owned())
             .stack_size(512 * 1024)
             .spawn(move || worker.run(link, rx, initial))
             .map_err(|e| format!("could not start the Discord thread: {e}"))?;
@@ -425,7 +425,7 @@ fn reply_message(reply: &Value) -> String {
 /// the pipe. Returns whether Discord accepted it; an error reply (e.g. a field Discord didn't
 /// like) is logged and not retried. `Err` means the connection is gone.
 fn send_presence(client: &mut DiscordIpcClient, presence: Option<&Presence>, nonce: u64) -> Result<bool, String> {
-    let nonce = format!("truffle-{nonce}");
+    let nonce = format!("coda-{nonce}");
     let activity = presence.map_or(Value::Null, activity_json);
     let payload = json!({
         "cmd": "SET_ACTIVITY",
@@ -603,7 +603,7 @@ mod tests {
         let shown = Call::Send(Some("long mix".into()));
         wait_for(&calls, |c| c.contains(&shown));
         // Discord quits and comes back mid-song: the next check finds the pipe closed, reconnects
-        // and shows the song again, with no change from Truffle's side.
+        // and shows the song again, with no change from Coda's side.
         *fail_next_send.lock().unwrap() = true;
         let seen = wait_for(&calls, |c| c.iter().filter(|call| **call == Call::Connect).count() >= 2);
         assert_eq!(seen.iter().filter(|call| **call == Call::Connect).count(), 2, "{seen:?}");

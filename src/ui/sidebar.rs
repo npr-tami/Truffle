@@ -13,7 +13,7 @@ use super::svgicon;
 use super::theme::{Palette, bold, medium, regular};
 use super::tracks::{liked_color, one_line};
 use super::util::fmt_thousands;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::config::{LibraryView, PlaylistFilter};
 use crate::model::{Command, PlayStatus, Source};
 use crate::text::{contains_folded, fold};
@@ -176,7 +176,7 @@ pub(super) fn nav_row(ui: &Ui, p: &Palette, row: Rect, icon: &str, name: &str, o
     resp
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn sidebar_full(&mut self, ui: &mut Ui) {
         let p = self.palette;
         let r = ui.max_rect();

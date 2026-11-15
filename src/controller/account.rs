@@ -115,7 +115,7 @@ impl Controller {
             && started.elapsed() < wait
         {
             let message = if interactive {
-                "Finish logging in in the browser window that Truffle opened."
+                "Finish logging in in the browser window that coda opened."
             } else {
                 "Still connecting to Spotify…"
             };
@@ -156,7 +156,7 @@ impl Controller {
                     let lead = if interactive {
                         "Logging in to Spotify didn't work. Please try again."
                     } else {
-                        "Truffle couldn't connect to Spotify. Check your internet connection, then log in again."
+                        "coda couldn't connect to Spotify. Check your internet connection, then log in again."
                     };
                     self.ui.send(Event::Error(user_error(lead, &e)));
                     self.ui.send(Event::NeedLogin);
@@ -217,7 +217,7 @@ impl Controller {
         self.save_state();
         if let Err(e) = session::forget_credentials(&self.paths) {
             self.ui.send(Event::Error(user_error(
-                "You're logged out, but Truffle couldn't remove the saved login from this computer.",
+                "You're logged out, but coda couldn't remove the saved login from this computer.",
                 &e,
             )));
         }
@@ -376,7 +376,7 @@ impl Controller {
     }
 
     /// The playlists the UI shows: all but the listen-along links (they only carry what plays):
-    /// the ones kept here or made in this session, the one older Truffles write to, and any of
+    /// the ones kept here or made in this session, the one older Codas write to, and any of
     /// the user's own named or worded like one (made on another PC, or renamed in Spotify's app).
     /// Every list in the UI (sidebar, Home, Library, "Add to playlist", autoplay) reads this.
     pub(super) fn playlists_for_ui(&self) -> Vec<PlaylistSummary> {
@@ -676,7 +676,7 @@ impl Controller {
         self.open_source = Some(source.clone());
         let cached = match &source {
             _ if force_refresh => None,
-            // A mix is made from Liked Songs: shown from the list Truffle has, with the likes as
+            // A mix is made from Liked Songs: shown from the list Coda has, with the likes as
             // they are now, while Spotify's list is read again.
             Source::Mix(id) => {
                 library.set_play_counts(self.history.play_counts.clone());
@@ -859,7 +859,7 @@ impl Controller {
         }
         // The Web API module validates the id and explains problems in the WebApi event.
         self.ui.send(Event::Status(
-            "Opening your browser so you can allow Truffle to edit your playlists…".into(),
+            "Opening your browser so you can allow coda to edit your playlists…".into(),
         ));
         self.spawn_webapi_connect(client_id, true);
     }
@@ -1047,7 +1047,7 @@ impl Controller {
         self.update_settings(|s| s.webapi_client_id = None);
         let message = match WebApi::forget(&self.paths) {
             Ok(()) => "Playlist editing is turned off.".to_owned(),
-            Err(e) => user_error("Playlist editing is turned off, but Truffle couldn't delete its saved sign-in.", &e),
+            Err(e) => user_error("Playlist editing is turned off, but coda couldn't delete its saved sign-in.", &e),
         };
         self.ui.send(Event::WebApi { connected: false, message: Some(message) });
     }
@@ -1095,7 +1095,7 @@ impl Controller {
         let Some((api, playlist)) = self.edit_target(&uri) else { return };
         if !image_path.is_file() {
             self.ui.send(Event::Error(
-                "Truffle couldn't find that image file. Pick a JPEG, PNG or WebP picture.".into(),
+                "coda couldn't find that image file. Pick a JPEG, PNG or WebP picture.".into(),
             ));
             return;
         }
@@ -1180,7 +1180,7 @@ fn reconnect_reminder(days: u64) -> String {
         n => format!("in {n} days"),
     };
     format!(
-        "Spotify ends Truffle's playlist-editing sign-in {when}. To renew it, open Settings, click Disconnect, then Connect again."
+        "Spotify ends coda's playlist-editing sign-in {when}. To renew it, open Settings, click Disconnect, then Connect again."
     )
 }
 
@@ -1211,7 +1211,7 @@ mod tests {
     }
 
     fn controller(name: &str, user: &str) -> (Controller, Receiver<Event>) {
-        let dir = std::env::temp_dir().join(format!("truffle-account-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-account-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         controller_at(Paths { config: dir.join("config"), cache: dir.join("cache") }, user)
     }

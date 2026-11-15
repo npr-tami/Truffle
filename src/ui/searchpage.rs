@@ -19,7 +19,7 @@ use super::theme::{Palette, bold, heavy, medium, regular};
 use super::tracks::one_line;
 use super::util::{fmt_ms, spotify_web_link};
 use super::wide;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::{Card, Command, SearchResults, Source, TrackInfo};
 use crate::text::{find_folded, find_folded_name, fold, fold_name};
 
@@ -206,7 +206,7 @@ enum Act {
     MoreUsers,
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// The title bar's box changed, gained focus, or was left with Enter or Esc.
     pub(super) fn search_box_events(&mut self, changed: bool, focused_now: bool, enter: bool, esc: bool) {
         if focused_now && self.middle_tab != MiddleTab::Search {

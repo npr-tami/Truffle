@@ -1,5 +1,5 @@
 //! The design prototype's icons, as SVG source. Generated; the shapes
-//! are copied as they are so Truffle's icons match the prototype exactly. `kit::icon` draws them.
+//! are copied as they are so Coda's icons match the prototype exactly. `kit::icon` draws them.
 
 /// How an icon is painted: outlined in the current colour, filled with it, or in its own colours.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -11,7 +11,8 @@ pub enum Paint {
 
 /// Name, view box size, paint, and the SVG body.
 pub const ICONS: &[(&str, f32, Paint, &str)] = &[
-    ("logo", 24.0, Paint::Own, "<defs><linearGradient id=\"chr\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#ffffff\"/><stop offset=\".2\" stop-color=\"#e4edf9\"/><stop offset=\".4\" stop-color=\"#9cb0cc\"/><stop offset=\".5\" stop-color=\"#44526e\"/><stop offset=\".535\" stop-color=\"#121827\"/><stop offset=\".57\" stop-color=\"#3f4d68\"/><stop offset=\".7\" stop-color=\"#aebfd6\"/><stop offset=\".84\" stop-color=\"#f5f9ff\"/><stop offset=\"1\" stop-color=\"#97a7bf\"/></linearGradient><linearGradient id=\"chr2\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#7c8799\"/><stop offset=\".45\" stop-color=\"#ffffff\"/><stop offset=\"1\" stop-color=\"#8592a6\"/></linearGradient></defs><circle cx=\"10.4\" cy=\"13.6\" r=\"9.8\" fill=\"url(#chr)\"/><circle cx=\"10.4\" cy=\"13.6\" r=\"8.3\" fill=\"#0c0d11\"/><circle cx=\"10.4\" cy=\"13.6\" r=\"6.6\" fill=\"none\" stroke=\"#272b35\" stroke-width=\".5\"/><circle cx=\"10.4\" cy=\"13.6\" r=\"5.1\" fill=\"none\" stroke=\"#272b35\" stroke-width=\".5\"/><circle cx=\"10.4\" cy=\"13.6\" r=\"3.3\" fill=\"url(#chr)\"/><circle cx=\"10.4\" cy=\"13.6\" r=\".8\" fill=\"#0c0d11\"/><path d=\"M20.4 3.4L15.9 13.2\" stroke=\"url(#chr2)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><path d=\"M15.9 13.2l-1.9 1.3\" stroke=\"#dfe6f0\" stroke-width=\"2.1\" stroke-linecap=\"round\"/><circle cx=\"20.4\" cy=\"3.4\" r=\"2.4\" fill=\"url(#chr)\"/><circle cx=\"20.4\" cy=\"3.4\" r=\".8\" fill=\"#0c0d11\"/>"),
+    // Coda's app icon (assets/coda.svg).
+    ("logo", 100.0, Paint::Own, "<rect width=\"100\" height=\"100\" rx=\"22\" fill=\"#22222b\"/><rect x=\"21\" y=\"62\" width=\"10\" height=\"16\" rx=\"5\" fill=\"#2bd4c4\"/><rect x=\"39\" y=\"36\" width=\"10\" height=\"42\" rx=\"5\" fill=\"#4fa3e6\"/><rect x=\"57\" y=\"22\" width=\"10\" height=\"56\" rx=\"5\" fill=\"#7a5cff\"/><rect x=\"75\" y=\"48\" width=\"10\" height=\"30\" rx=\"5\" fill=\"#ff5d8f\"/>"),
     ("person", 100.0, Paint::Fill, "<circle cx=\"52\" cy=\"42\" r=\"17\"/><rect x=\"45\" y=\"52\" width=\"14\" height=\"17\" rx=\"5\"/><path d=\"M3 110 C5 85 26 66 52 66 C78 66 99 85 101 110 Z\"/>"),
     ("home", 24.0, Paint::Stroke, "<path d=\"M4 11l8-7 8 7v9h-5v-6H9v6H4z\"/>"),
     ("search", 24.0, Paint::Stroke, "<circle cx=\"11\" cy=\"11\" r=\"6\"/><path d=\"M16 16l5 5\"/>"),

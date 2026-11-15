@@ -1,6 +1,6 @@
 //! Listen-along links (the rules are in `crate::listen::links`): one channel playlist per friend.
 //! Making, kicking, letting back in, renaming and removing them, reading whose they are, and
-//! keeping `listen_links.json` and the link older Truffles write to (`Settings::listen_channel`)
+//! keeping `listen_links.json` and the link older Codas write to (`Settings::listen_channel`)
 //! in step. Sharing itself (what is written, and when) is in `listen`.
 //!
 //! The log names a link by its number ("link #3"), never by its friend's name or its playlist:
@@ -123,8 +123,8 @@ impl Controller {
         self.links_held
     }
 
-    /// The link older Truffles write to follows the links: the first of this account's that
-    /// isn't kicked (saved at once, so an older Truffle started next writes to no kicked link).
+    /// The link older Codas write to follows the links: the first of this account's that
+    /// isn't kicked (saved at once, so an older Coda started next writes to no kicked link).
     pub(super) fn mirror_links(&mut self) {
         if self.profile.is_none() {
             return;
@@ -136,7 +136,7 @@ impl Controller {
         }
     }
 
-    /// After any change to the links: saved, the older Truffles' link follows, writes for links
+    /// After any change to the links: saved, the older Codas' link follows, writes for links
     /// no longer here are dropped, and the UI hears it.
     pub(super) fn links_changed(&mut self) {
         self.save_links();
@@ -240,7 +240,7 @@ impl Controller {
     }
 
     /// Kick: the link says stopped, once, then nothing more is written to it (until let back in).
-    /// The friend's Truffle sees the host stop, as when they quit. Let back in: the link says
+    /// The friend's Coda sees the host stop, as when they quit. Let back in: the link says
     /// what plays at once; same link, nothing to send again.
     pub(super) fn cmd_listen_kick(&mut self, id: u32, kick: bool) {
         if self.links_locked() {
@@ -486,7 +486,7 @@ impl Controller {
 
     /// A removed link's playlist leaves the library. Owed (and saved, with the rest of the book)
     /// until Spotify says it is out, so one that fails, or is cut off by quitting, is tried again
-    /// at the next login, reconnect and library refresh: Truffle hides it, so nothing else would
+    /// at the next login, reconnect and library refresh: Coda hides it, so nothing else would
     /// ever show it.
     fn delete_link_playlist(&mut self, uri: &str) {
         if let Some(r) = self.links.removed_mut(uri) {

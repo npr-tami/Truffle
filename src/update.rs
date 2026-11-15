@@ -1,13 +1,18 @@
-//! Updates: Truffle's releases on GitHub, looked at once a day (or on "Check now").
+//! Updates: Coda's releases on GitHub, looked at once a day (or on "Check now").
 //!
 //! Only GitHub's public list of releases is read: the versions, their notes and the exe's size and
 //! checksum. Nothing about the user or their music is sent (the request carries a plain
-//! "Truffle-updater" user agent, no ids).
+//! "coda/<version>" user agent, no ids).
 //!
-//! Installing: the new exe is downloaded next to the running one (`truffle.exe.new`) and checked
+//! The releases are looked for under the repo's new name first and its old one (Truffle) second,
+//! and a release's exe may be called coda.exe or (as the app's old name) truffle.exe, so copies
+//! from before and after the rename find each other's releases. Installing works from whatever the
+//! running exe is called.
+//!
+//! Installing: the new exe is downloaded next to the running one (`coda.exe.new`) and checked
 //! (size, and SHA-256 when GitHub gives one). The running exe is then renamed to a backup
-//! (`truffle.exe.old-<version>`, Windows lets a running exe be renamed) and the new one takes its
-//! name. Truffle quits as from the tray (saving the queue and the spot), and once its single-instance
+//! (`coda.exe.old-<version>`, Windows lets a running exe be renamed) and the new one takes its
+//! name. Coda quits as from the tray (saving the queue and the spot), and once its single-instance
 //! lock is let go, `main` starts the new exe on its own ([`spawn_detached`]), with `--resume` when
 //! music was playing.
 
@@ -20,12 +25,17 @@ use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-/// The repo whose releases are Truffle's.
-const RELEASES: &str = "https://api.github.com/repos/npr-tami/Truffle/releases?per_page=20";
-/// The exe a release carries.
-const ASSET: &str = "truffle.exe";
-const USER_AGENT: &str = "Truffle-updater";
-/// Once a day while Truffle is open.
+/// Where Coda's releases are, in the order asked: the repo's new name, then its old one (a repo
+/// that isn't there answers 404 and the next is asked; GitHub also forwards a renamed repo's old
+/// name to the new one).
+const RELEASES: [&str; 2] = [
+    "https://api.github.com/repos/npr-tami/Coda/releases?per_page=20",
+    "https://api.github.com/repos/npr-tami/Truffle/releases?per_page=20",
+];
+/// The exe a release carries, in the order looked for: the new name, then the app's old one.
+const ASSETS: [&str; 2] = ["coda.exe", "truffle.exe"];
+const USER_AGENT: &str = concat!("coda/", env!("CARGO_PKG_VERSION"));
+/// Once a day while Coda is open.
 pub const CHECK_EVERY_SECS: u64 = 24 * 60 * 60;
 /// "Later" asks again after this.
 pub const LATER_SECS: u64 = 24 * 60 * 60;
@@ -173,6 +183,11 @@ fn note_lines(body: &str) -> Vec<String> {
         .collect()
 }
 
+/// A release's exe: coda.exe, else truffle.exe (any case).
+fn exe_asset(release: &ApiRelease) -> Option<&ApiAsset> {
+    ASSETS.iter().find_map(|name| release.assets.iter().find(|a| a.name.eq_ignore_ascii_case(name)))
+}
+
 /// From GitHub's list: the newest published release above `ours` with the exe, and the notes of
 /// every published release above `ours`. Drafts and pre-releases are left out.
 pub fn pick(releases: &[ApiRelease], ours: &str) -> Option<Found> {
@@ -182,8 +197,7 @@ pub fn pick(releases: &[ApiRelease], ours: &str) -> Option<Found> {
         .filter_map(|r| parse_version(&r.tag_name).map(|v| (r, v)))
         .collect();
     newer.sort_by_key(|r| std::cmp::Reverse(r.1));
-    let (release, v) = newer.iter().find(|(r, _)| r.assets.iter().any(|a| a.name.eq_ignore_ascii_case(ASSET)))?;
-    let asset = release.assets.iter().find(|a| a.name.eq_ignore_ascii_case(ASSET))?;
+    let (v, asset) = newer.iter().find_map(|(r, v)| exe_asset(r).map(|a| (v, a)))?;
     let sha256 = asset
         .digest
         .as_deref()
@@ -211,19 +225,47 @@ fn client(timeout: Duration) -> Result<reqwest::Client> {
         .context("couldn't set up the connection")
 }
 
-/// Asks GitHub for Truffle's releases: the newest above this version, if any.
+/// Asks GitHub for Coda's releases: the newest above this version, if any.
 pub async fn check() -> Result<Option<Found>> {
-    let resp = client(Duration::from_secs(30))?
-        .get(RELEASES)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await
-        .map_err(|_| anyhow!("No connection to GitHub"))?;
-    if !resp.status().is_success() {
-        bail!("GitHub answered {}", resp.status());
-    }
-    let releases: Vec<ApiRelease> = resp.json().await.map_err(|_| anyhow!("GitHub's answer couldn't be read"))?;
+    let http = client(Duration::from_secs(30))?;
+    let releases = releases_from(&RELEASES, |url| {
+        let http = http.clone();
+        async move {
+            let resp = http
+                .get(url)
+                .header("Accept", "application/vnd.github+json")
+                .send()
+                .await
+                .map_err(|_| anyhow!("No connection to GitHub"))?;
+            let status = resp.status().as_u16();
+            let body = if resp.status().is_success() {
+                resp.text().await.map_err(|_| anyhow!("GitHub's answer broke off"))?
+            } else {
+                String::new()
+            };
+            Ok((status, body))
+        }
+    })
+    .await?;
     Ok(pick(&releases, OURS))
+}
+
+/// The releases from the first of `urls` that is there: one answering 404 (a repo under another
+/// name) passes on to the next; any other failure stops. `get` gives a url's status and body.
+async fn releases_from<F, Fut>(urls: &[&'static str], get: F) -> Result<Vec<ApiRelease>>
+where
+    F: Fn(&'static str) -> Fut,
+    Fut: std::future::Future<Output = Result<(u16, String)>>,
+{
+    for &url in urls {
+        let (status, body) = get(url).await?;
+        match status {
+            200..=299 => return serde_json::from_str(&body).map_err(|_| anyhow!("GitHub's answer couldn't be read")),
+            404 => {}
+            _ => bail!("GitHub answered {status}"),
+        }
+    }
+    bail!("GitHub answered 404")
 }
 
 /// How a download is going, shared with the UI.
@@ -240,7 +282,7 @@ pub struct Progress {
 
 /// The running exe.
 pub fn current_exe() -> Result<PathBuf> {
-    std::env::current_exe().context("couldn't find Truffle's own exe")
+    std::env::current_exe().context("couldn't find coda's own exe")
 }
 
 /// Where the download goes: next to the running exe.
@@ -254,7 +296,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 /// Whether downloaded bytes are the release's exe: the size GitHub gives, and its checksum when
-/// there is one. A small "MZ" check too, so an error page never becomes truffle.exe.
+/// there is one. A small "MZ" check too, so an error page never becomes coda.exe.
 pub fn verify(bytes: &[u8], size: u64, sha256: Option<&str>) -> Result<(), String> {
     if bytes.len() as u64 != size {
         return Err(format!("The download was {} bytes, not {size}", bytes.len()));
@@ -309,10 +351,10 @@ async fn download_inner(found: &Found, dest: &Path, progress: &Progress) -> Resu
     Ok(())
 }
 
-/// A free backup name next to `exe`: `truffle.exe.old-0.1.1`, then `-2`, `-3`… (an older backup is
+/// A free backup name next to `exe`: `coda.exe.old-0.1.1`, then `-2`, `-3`… (an older backup is
 /// never written over).
 pub fn backup_path(exe: &Path, ours: &str, exists: impl Fn(&Path) -> bool) -> PathBuf {
-    let name = exe.file_name().map_or_else(|| ASSET.into(), |n| n.to_string_lossy().into_owned());
+    let name = exe.file_name().map_or_else(|| ASSETS[0].into(), |n| n.to_string_lossy().into_owned());
     let first = exe.with_file_name(format!("{name}.old-{ours}"));
     if !exists(&first) {
         return first;
@@ -323,18 +365,18 @@ pub fn backup_path(exe: &Path, ours: &str, exists: impl Fn(&Path) -> bool) -> Pa
 /// Swaps the running exe for `new`: the running one becomes `backup`, `new` takes its name. On
 /// failure everything is put back as it was. Returns the backup's path.
 pub fn swap(exe: &Path, new: &Path, backup: &Path) -> Result<()> {
-    std::fs::rename(exe, backup).context("couldn't move the running Truffle aside")?;
+    std::fs::rename(exe, backup).context("couldn't move the running coda aside")?;
     if let Err(e) = std::fs::rename(new, exe) {
         let _ = std::fs::rename(backup, exe);
-        return Err(anyhow!(e).context("couldn't put the new Truffle in place"));
+        return Err(anyhow!(e).context("couldn't put the new coda in place"));
     }
     Ok(())
 }
 
-/// Set once an update is in place: `main` starts the new exe after Truffle has closed.
+/// Set once an update is in place: `main` starts the new exe after Coda has closed.
 static RESTART: Mutex<Option<(PathBuf, bool)>> = Mutex::new(None);
 
-/// Ask `main` to start `exe` once Truffle has closed (with `--resume` when `resume`).
+/// Ask `main` to start `exe` once Coda has closed (with `--resume` when `resume`).
 pub fn restart_after_exit(exe: PathBuf, resume: bool) {
     *RESTART.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((exe, resume));
 }
@@ -345,7 +387,7 @@ pub fn take_restart() -> Option<(PathBuf, bool)> {
 }
 
 /// Starts `exe` as a process of its own: no console, its own process group, and out of any job
-/// Truffle runs in (when the job allows it), so it never ends with whatever started this one.
+/// Coda runs in (when the job allows it), so it never ends with whatever started this one.
 pub fn spawn_detached(exe: &Path, resume: bool) -> std::io::Result<()> {
     let make = |flags: u32| {
         let mut cmd = std::process::Command::new(exe);
@@ -464,11 +506,11 @@ mod tests {
     #[test]
     fn picks_the_newest_release_with_the_exe() {
         let json = r###"[
-            {"tag_name":"v0.1.4","draft":true,"assets":[{"name":"truffle.exe","size":1,"browser_download_url":"d"}]},
-            {"tag_name":"v0.1.3","prerelease":true,"assets":[{"name":"truffle.exe","size":1,"browser_download_url":"p"}]},
+            {"tag_name":"v0.1.4","draft":true,"assets":[{"name":"coda.exe","size":1,"browser_download_url":"d"}]},
+            {"tag_name":"v0.1.3","prerelease":true,"assets":[{"name":"coda.exe","size":1,"browser_download_url":"p"}]},
             {"tag_name":"v0.1.2","body":"## Changes\n- Settings are a page\n\n* Updates","published_at":"2026-11-20T10:00:00Z",
-             "assets":[{"name":"truffle.exe","size":15,"browser_download_url":"u","digest":"sha256:ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD"}]},
-            {"tag_name":"v0.1.1","body":"old","assets":[{"name":"truffle.exe","size":9,"browser_download_url":"o"}]},
+             "assets":[{"name":"coda.exe","size":15,"browser_download_url":"u","digest":"sha256:ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD"}]},
+            {"tag_name":"v0.1.1","body":"old","assets":[{"name":"coda.exe","size":9,"browser_download_url":"o"}]},
             {"tag_name":"v0.1.0","assets":[]}
         ]"###;
         let releases: Vec<ApiRelease> = serde_json::from_str(json).unwrap();
@@ -483,11 +525,83 @@ mod tests {
         assert_eq!(found.notes[1].version, "0.1.1");
         assert!(pick(&releases, "0.1.2").is_none());
         // A newer release without the exe: the newest one with it, and both notes.
-        let json = r#"[{"tag_name":"v0.2.0","assets":[]},{"tag_name":"v0.1.5","assets":[{"name":"Truffle.exe","size":3,"browser_download_url":"x"}]}]"#;
+        let json = r#"[{"tag_name":"v0.2.0","assets":[]},{"tag_name":"v0.1.5","assets":[{"name":"coda.exe","size":3,"browser_download_url":"x"}]}]"#;
         let releases: Vec<ApiRelease> = serde_json::from_str(json).unwrap();
         let found = pick(&releases, "0.1.1").unwrap();
         assert_eq!(found.version, "0.1.5");
         assert_eq!(found.notes.len(), 1);
+    }
+
+    #[test]
+    fn an_old_name_exe_is_found_too() {
+        // Releases made before the rename carry truffle.exe; newer ones carry both.
+        let json = r#"[
+            {"tag_name":"v0.1.4","assets":[{"name":"truffle.exe","size":4,"browser_download_url":"old4"},{"name":"coda.exe","size":5,"browser_download_url":"new4"}]},
+            {"tag_name":"v0.1.3","assets":[{"name":"Truffle.exe","size":3,"browser_download_url":"old3"}]},
+            {"tag_name":"v0.1.2","assets":[{"name":"notes.txt","size":1,"browser_download_url":"n"}]}
+        ]"#;
+        let releases: Vec<ApiRelease> = serde_json::from_str(json).unwrap();
+        let found = pick(&releases, "0.1.2").unwrap();
+        assert_eq!((found.version.as_str(), found.url.as_str(), found.size), ("0.1.4", "new4", 5), "coda.exe first");
+        let found = pick(&releases[1..], "0.1.2").unwrap();
+        assert_eq!((found.version.as_str(), found.url.as_str()), ("0.1.3", "old3"), "else truffle.exe");
+        assert!(pick(&releases[2..], "0.1.1").is_none(), "a release without either exe");
+    }
+
+    fn run<T>(f: impl std::future::Future<Output = T>) -> T {
+        tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(f)
+    }
+
+    #[test]
+    fn the_old_repo_is_asked_when_the_new_one_isnt_there() {
+        let asked = Mutex::new(Vec::new());
+        let list = r#"[{"tag_name":"v9.0.0","assets":[{"name":"truffle.exe","size":2,"browser_download_url":"t"}]}]"#;
+        let get = |url: &'static str| {
+            asked.lock().unwrap().push(url);
+            let answer = if url.contains("/Coda/") { (404, String::new()) } else { (200, list.to_owned()) };
+            async move { Ok(answer) }
+        };
+        let releases = run(releases_from(&RELEASES, get)).unwrap();
+        assert_eq!(*asked.lock().unwrap(), RELEASES.to_vec());
+        assert_eq!(pick(&releases, OURS).unwrap().url, "t");
+        assert!(RELEASES[0].contains("/npr-tami/Coda/") && RELEASES[1].contains("/npr-tami/Truffle/"));
+    }
+
+    #[test]
+    fn the_new_repo_is_enough_when_it_is_there() {
+        let asked = Mutex::new(Vec::new());
+        let get = |url: &'static str| {
+            asked.lock().unwrap().push(url);
+            async move { Ok((200, "[]".to_owned())) }
+        };
+        assert!(run(releases_from(&RELEASES, get)).unwrap().is_empty());
+        assert_eq!(*asked.lock().unwrap(), vec![RELEASES[0]]);
+    }
+
+    #[test]
+    fn other_failures_dont_fall_back() {
+        let asked = Mutex::new(Vec::new());
+        let get = |url: &'static str| {
+            asked.lock().unwrap().push(url);
+            async move { Ok((403, String::new())) }
+        };
+        let e = run(releases_from(&RELEASES, get)).unwrap_err();
+        assert_eq!(e.to_string(), "GitHub answered 403");
+        assert_eq!(asked.lock().unwrap().len(), 1);
+        // Neither repo there: the 404 is told.
+        let e = run(releases_from(&RELEASES, |_| async { Ok((404, String::new())) })).unwrap_err();
+        assert_eq!(e.to_string(), "GitHub answered 404");
+    }
+
+    #[test]
+    fn an_exe_installed_under_its_old_name_keeps_that_name() {
+        // A coda.exe that an old updater put in place as truffle.exe: the download and the
+        // backup go by the running exe's own name.
+        let dir = Path::new("X:/apps");
+        let exe = dir.join("truffle.exe");
+        assert_eq!(download_path(&exe), dir.join("truffle.exe.new"));
+        assert_eq!(backup_path(&exe, "0.1.3", |_| false), dir.join("truffle.exe.old-0.1.3"));
+        assert_eq!(download_path(&dir.join("coda.exe")), dir.join("coda.exe.new"));
     }
 
     #[test]
@@ -514,9 +628,9 @@ mod tests {
     #[test]
     fn backups_are_never_written_over() {
         let dir = Path::new("X:/apps");
-        let exe = dir.join("truffle.exe");
-        assert_eq!(backup_path(&exe, "0.1.1", |_| false), dir.join("truffle.exe.old-0.1.1"));
-        let taken = [dir.join("truffle.exe.old-0.1.1"), dir.join("truffle.exe.old-0.1.1-2")];
-        assert_eq!(backup_path(&exe, "0.1.1", |p| taken.iter().any(|t| t == p)), dir.join("truffle.exe.old-0.1.1-3"));
+        let exe = dir.join("coda.exe");
+        assert_eq!(backup_path(&exe, "0.1.1", |_| false), dir.join("coda.exe.old-0.1.1"));
+        let taken = [dir.join("coda.exe.old-0.1.1"), dir.join("coda.exe.old-0.1.1-2")];
+        assert_eq!(backup_path(&exe, "0.1.1", |p| taken.iter().any(|t| t == p)), dir.join("coda.exe.old-0.1.1-3"));
     }
 }

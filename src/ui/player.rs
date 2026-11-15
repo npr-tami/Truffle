@@ -13,7 +13,7 @@ use super::svgicon;
 use super::theme::{Palette, bold, regular};
 use super::tracks::one_line;
 use super::util::fmt_ms;
-use super::TruffleApp;
+use super::CodaApp;
 use crate::model::{Command, PlayStatus, RepeatMode, SleepTimer, SleepTimerState};
 
 pub const BAR_HEIGHT: f32 = 72.0;
@@ -123,7 +123,7 @@ fn bar_title(ui: &Ui, r: Rect, uri: Option<&str>) -> egui::Response {
     if resp.dragged() { resp } else { resp.on_hover_cursor(egui::CursorIcon::PointingHand) }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// The player bar (`.pb`, 72 tall): the song on the left (its cover, or the little turntable while the
     /// side panel is closed), the controls and the seek line in the middle, the side panel button, volume
     /// and the rest on the right. Widths follow the prototype: 290 / 290, or 240 / 210 at medium widths.

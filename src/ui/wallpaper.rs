@@ -21,7 +21,7 @@ use egui::{
 use image::metadata::Orientation;
 use image::{DynamicImage, ImageDecoder, ImageError, ImageReader};
 
-use super::TruffleApp;
+use super::CodaApp;
 use super::fin;
 use super::tracks::banner::Banners;
 use crate::config::{Wallpaper, WallpaperFit};
@@ -38,7 +38,7 @@ const WALLPAPER_ERROR: &str = "Couldn't show the wallpaper";
 pub(super) const TEXTURE: TextureOptions = TextureOptions::LINEAR.with_mipmap_mode(Some(TextureFilter::Linear));
 /// The same, repeated past its edges: a tiled wallpaper.
 const TILED: TextureOptions = TextureOptions::LINEAR_REPEAT.with_mipmap_mode(Some(TextureFilter::Linear));
-/// The picture kinds Truffle opens.
+/// The picture kinds Coda opens.
 const PICTURE_KINDS: [&str; 4] = ["jpg", "jpeg", "png", "webp"];
 
 /// The pictures next to the wallpaper, as small pictures to click: at most this many, read this
@@ -215,7 +215,7 @@ enum NearbyMsg {
 struct Nearby {
     /// The folder they're from: None until the row is shown (again, after Settings closed).
     folder: Option<PathBuf>,
-    /// The last picture's folder, kept while Truffle runs: after NONE its pictures still show, so
+    /// The last picture's folder, kept while Coda runs: after NONE its pictures still show, so
     /// one click goes back.
     last_folder: Option<PathBuf>,
     /// The folder was listed (until then nothing is said about it being empty).
@@ -371,7 +371,7 @@ impl WallpaperState {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Runs every drawn frame (only then does egui know the graphics card's largest texture): takes
     /// a picked file, starts loading a newly chosen picture and takes in a finished one, keeps the
     /// blur and the pictures next to it up to date; the same for the banners.
@@ -404,7 +404,7 @@ impl TruffleApp {
                 continue;
             }
             match result {
-                // Shrunk to fit already, but a texture too big for the graphics card would stop Truffle.
+                // Shrunk to fit already, but a texture too big for the graphics card would stop Coda.
                 Ok(fresh) if fresh.image.width() > max_side || fresh.image.height() > max_side => {
                     self.wallpaper_failed("the picture is too large".to_owned());
                 }
@@ -454,13 +454,13 @@ impl TruffleApp {
         }
         let job = LoadJob { serial: w.serial, path: PathBuf::from(&w.path), max_side, blur: (radius > 0).then_some((radius, w.asked_tiled)) };
         let (tx, ctx) = (w.loaded_tx.clone(), ctx.clone());
-        let asked = ask_newest(&w.load_slot, job, "truffle-wallpaper", move |job| {
+        let asked = ask_newest(&w.load_slot, job, "coda-wallpaper", move |job| {
             let _ = tx.send((job.serial, load(&job)));
             ctx.request_repaint();
         });
         if let Err(e) = asked {
             log::warn!("could not start loading the wallpaper: {e}");
-            self.wallpaper_failed("Truffle couldn't start loading it".to_owned());
+            self.wallpaper_failed("coda couldn't start loading it".to_owned());
         }
     }
 
@@ -515,7 +515,7 @@ impl TruffleApp {
         }
         let job = BlurJob { key: want, picture: Arc::clone(&picture.source), fitted_w: picture.fitted_w };
         let (tx, ctx) = (w.blurred_tx.clone(), ctx.clone());
-        let asked = ask_newest(&w.blur_slot, job, "truffle-wallpaper-blur", move |job| {
+        let asked = ask_newest(&w.blur_slot, job, "coda-wallpaper-blur", move |job| {
             let image = blurred(&job.picture, job.fitted_w, job.key.radius, job.key.wrap);
             let _ = tx.send((job.key, image));
             ctx.request_repaint();
@@ -535,7 +535,7 @@ impl TruffleApp {
         let tx = self.wallpaper.picked_tx.clone();
         let ctx = ctx.clone();
         let folder = picture_folder(&self.prefs.wallpaper.path).or_else(|| self.wallpaper.nearby.last_folder.clone());
-        let spawned = std::thread::Builder::new().name("truffle-file-dialog".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-file-dialog".into()).spawn(move || {
             let mut dialog = rfd::FileDialog::new().set_title("Choose a wallpaper").add_filter("Images", &PICTURE_KINDS);
             // Start in the folder of the picture shown now (or the last one).
             if let Some(folder) = folder.filter(|f| f.is_dir()) {
@@ -757,7 +757,7 @@ impl Nearby {
         self.done = false;
         self.pictures.clear();
         let (tx, serial, wanted, ctx) = (self.tx.clone(), self.serial, Arc::clone(&self.wanted), ctx.clone());
-        let spawned = std::thread::Builder::new().name("truffle-nearby".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-nearby".into()).spawn(move || {
             let list = nearby_pictures(&folder, MAX_THUMBS);
             let _ = tx.send(NearbyMsg::Listed(serial, list.clone()));
             ctx.request_repaint();
@@ -1102,7 +1102,7 @@ fn same_path(a: &Path, b: &str) -> bool {
     !b.is_empty() && tidy(&a.to_string_lossy()) == tidy(b)
 }
 
-/// Whether Truffle opens a file with this name as a picture (JPEG, PNG or WebP).
+/// Whether Coda opens a file with this name as a picture (JPEG, PNG or WebP).
 fn is_picture(path: &Path) -> bool {
     path.extension().is_some_and(|x| PICTURE_KINDS.contains(&x.to_string_lossy().to_lowercase().as_str()))
 }
@@ -1312,7 +1312,7 @@ fn reason(e: &ImageError) -> String {
 fn io_reason(e: &std::io::Error) -> String {
     match e.kind() {
         std::io::ErrorKind::NotFound => "the file is missing".to_owned(),
-        std::io::ErrorKind::PermissionDenied => "Windows won't let Truffle read the file".to_owned(),
+        std::io::ErrorKind::PermissionDenied => "Windows won't let coda read the file".to_owned(),
         _ => e.to_string(),
     }
 }
@@ -1601,7 +1601,7 @@ mod tests {
 
     #[test]
     fn nearby_pictures_are_the_folders_pictures_newest_first() {
-        let dir = std::env::temp_dir().join(format!("truffle-nearby-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-nearby-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("inside.png")).unwrap();
         let now = std::time::SystemTime::now();
@@ -1693,7 +1693,7 @@ mod tests {
 
     #[test]
     fn a_loaded_wallpaper_keeps_only_a_small_copy_and_comes_with_its_blur() {
-        let dir = std::env::temp_dir().join(format!("truffle-load-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-load-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let (wide, small) = (dir.join("wide.png"), dir.join("small.png"));
@@ -1721,7 +1721,7 @@ mod tests {
         // Twenty pictures clicked through quickly, each taking a while.
         for job in 0..20 {
             let (tx, busy) = (tx.clone(), Arc::clone(&busy));
-            ask_newest(&slot, job, "truffle-test-newest", move |job| {
+            ask_newest(&slot, job, "coda-test-newest", move |job| {
                 assert_eq!(busy.fetch_add(1, Ordering::SeqCst), 0, "two at once");
                 std::thread::sleep(std::time::Duration::from_millis(30));
                 busy.fetch_sub(1, Ordering::SeqCst);
@@ -1739,7 +1739,7 @@ mod tests {
 
     #[test]
     fn a_nearby_read_is_done_also_with_a_picture_it_cant_read() {
-        let dir = std::env::temp_dir().join(format!("truffle-nearby-done-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-nearby-done-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         image::RgbaImage::from_pixel(40, 20, image::Rgba([200, 0, 0, 255])).save(dir.join("good.png")).unwrap();

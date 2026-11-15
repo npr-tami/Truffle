@@ -12,7 +12,7 @@ use super::svgicon;
 use super::theme::{bold, regular};
 use super::tracks::{liked_color, one_line};
 use super::util::spotify_web_link;
-use super::TruffleApp;
+use super::CodaApp;
 use crate::model::{Command, Source, TrackInfo};
 use crate::text::{contains_folded, fold};
 
@@ -62,7 +62,7 @@ enum Item {
     Sep,
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Opens the menu for `track` at `at` (the pointer, usually).
     pub(super) fn open_song_menu(&mut self, track: &TrackInfo, at: Pos2, from: Option<Source>) {
         self.song_menu = Some(SongMenu { track: track.clone(), tracks: vec![track.clone()], at, from, sub: false, find: String::new(), held: None, passes: 0 });

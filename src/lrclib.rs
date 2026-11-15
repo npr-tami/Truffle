@@ -1,6 +1,6 @@
 //! Timed lyrics from LRCLIB (lrclib.net, free and open, used by many players), for songs whose lyrics
 //! Spotify has without times or not at all: asked for by the song's title, artist, album and length.
-//! Its `[mm:ss.xx]` lines become Truffle's lyric lines.
+//! Its `[mm:ss.xx]` lines become Coda's lyric lines.
 
 use std::time::Duration;
 
@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::model::{LyricLine, TrackInfo};
 
-const USER_AGENT: &str = concat!("Truffle/", env!("CARGO_PKG_VERSION"), " (Windows; personal player)");
+const USER_AGENT: &str = concat!("coda/", env!("CARGO_PKG_VERSION"), " (Windows; personal player)");
 const API: &str = "https://lrclib.net/api";
 /// A found song's length may differ this much from Spotify's.
 const LENGTH_SLACK_SECS: f64 = 3.0;

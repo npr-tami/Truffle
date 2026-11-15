@@ -14,7 +14,7 @@ use super::svgicon;
 use super::theme::{bold, heavy, medium, regular};
 use super::tracks::one_line;
 use super::util::{fmt_ms, fmt_thousands, fmt_total};
-use super::{TruffleApp, Undo};
+use super::{CodaApp, Undo};
 use crate::model::{Command, LyricLine, PlayStatus, TrackInfo};
 
 /// How long (base seconds, see [`motion::secs`]) the side panel's lyrics take to glide when the sung
@@ -51,7 +51,7 @@ fn rows_text(galley: &egui::Galley) -> String {
 ")
 }
 
-/// A song's lyrics as far as Truffle knows them.
+/// A song's lyrics as far as Coda knows them.
 #[derive(Clone)]
 pub enum Lyrics {
     Loading,
@@ -101,7 +101,7 @@ pub fn line_at(lines: &[LyricLine], pos_ms: u32) -> Option<usize> {
     lines.iter().rposition(|l| l.start_ms <= pos_ms)
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// The playing song's lyrics: asked for once, the first time they are needed.
     pub(super) fn current_lyrics(&mut self) -> Option<Lyrics> {
         let uri = self.playback.track.as_ref().filter(|t| !t.is_local)?.uri.clone();

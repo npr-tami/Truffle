@@ -9,7 +9,7 @@ use super::fin;
 use super::theme::{bold, regular};
 use super::wallpaper::TEXTURE;
 use crate::icon::IconStyle;
-use super::{AuthState, TruffleApp};
+use super::{AuthState, CodaApp};
 use crate::model::Command;
 
 /// After this long in "logging in", offer a way back to the login button.
@@ -21,9 +21,9 @@ const WARMING_UP: &str = "Warming up the turntable…";
 /// The logo's size on screen, in points.
 const LOGO: f32 = 112.0;
 /// The wordmark's width on screen, in points (its height follows).
-const WORDMARK_W: f32 = 270.0;
+const WORDMARK_W: f32 = 160.0;
 
-/// The chrome "TRUFFLE" wordmark, drawn at 3x (`assets/wordmark.svg`): one for dark backgrounds,
+/// The chrome "coda" wordmark, drawn at 3x (`assets/wordmark.svg`): one for dark backgrounds,
 /// one for light ones (a darker edge, and a blue sparkle that stays visible on white).
 pub(super) static WORDMARK: &[u8] = include_bytes!("../../assets/wordmark.png");
 pub(super) static WORDMARK_LIGHT: &[u8] = include_bytes!("../../assets/wordmark_light.png");
@@ -43,14 +43,14 @@ impl Brand {
         let logo = rgba_image([icon.width as usize, icon.height as usize], &icon.rgba);
         Self {
             style,
-            logo: ctx.load_texture("truffle-logo", logo, TEXTURE),
-            wordmark: ctx.load_texture("truffle-wordmark", png_image(WORDMARK), TEXTURE),
-            wordmark_light: ctx.load_texture("truffle-wordmark-light", png_image(WORDMARK_LIGHT), TEXTURE),
+            logo: ctx.load_texture("coda-logo", logo, TEXTURE),
+            wordmark: ctx.load_texture("coda-wordmark", png_image(WORDMARK), TEXTURE),
+            wordmark_light: ctx.load_texture("coda-wordmark-light", png_image(WORDMARK_LIGHT), TEXTURE),
         }
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn login_screen(&mut self, ui: &mut Ui) {
         let p = self.palette;
         egui::CentralPanel::default().frame(Frame::new().fill(p.main_bg)).show(ui, |ui| {
@@ -81,7 +81,7 @@ impl TruffleApp {
             let wordmark = if p.dark { &brand.wordmark } else { &brand.wordmark_light };
             let [w, h] = wordmark.size();
             ui.add(Image::new(wordmark).fit_to_exact_size(vec2(WORDMARK_W, WORDMARK_W * h as f32 / w.max(1) as f32)))
-                .on_hover_text("Truffle");
+                .on_hover_text("coda");
             ui.add_space(8.0);
             ui.label(RichText::new(TAGLINE).font(regular(14.0)).color(muted));
             ui.add_space(30.0);
@@ -179,7 +179,7 @@ mod tests {
         for bytes in [WORDMARK, WORDMARK_LIGHT] {
             let img = png_image(bytes);
             let [w, h] = img.size;
-            assert!(w > 1000 && h > 200 && w > 3 * h, "{w}x{h}");
+            assert!(w > 800 && h > 200 && w > 2 * h, "{w}x{h}");
             // Trimmed to the drawing, with a see-through margin.
             assert_eq!(img.pixels[0].a(), 0);
         }

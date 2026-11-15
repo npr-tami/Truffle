@@ -1,4 +1,4 @@
-//! App directories and persisted settings (`%APPDATA%\truffle\...`).
+//! App directories and persisted settings (`%APPDATA%\coda\...`).
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -20,24 +20,105 @@ pub struct Paths {
     pub cache: PathBuf,
 }
 
-/// Where release builds write their log: `%LOCALAPPDATA%\truffle\logs\truffle.log`, beside the
+/// Where release builds write their log: `%LOCALAPPDATA%\coda\logs\coda.log`, beside the
 /// cache folder. Debug builds log to the console instead.
 pub fn log_file() -> Option<PathBuf> {
-    let dirs = directories::ProjectDirs::from("", "", "truffle")?;
-    Some(dirs.cache_dir().with_file_name("logs").join("truffle.log"))
+    let dirs = directories::ProjectDirs::from("", "", "coda")?;
+    Some(dirs.cache_dir().with_file_name("logs").join("coda.log"))
 }
 
 /// Debug builds only: keep all data (`config\`, `cache\`) under this folder instead of the user's
-/// profile, so a development build can run next to an installed Truffle without sharing its
+/// profile, so a development build can run next to an installed Coda without sharing its
 /// login, settings or play history.
 #[cfg(debug_assertions)]
-pub const DEV_DATA_DIR_ENV: &str = "TRUFFLE_DEV_DATA_DIR";
+pub const DEV_DATA_DIR_ENV: &str = "CODA_DEV_DATA_DIR";
 
 /// Tests that keep files (YouTube downloads, the sample song, speed reports) put them under
-/// `TRUFFLE_TEST_DIR` when it is set, else under the temp folder.
+/// `CODA_TEST_DIR` when it is set, else under the temp folder.
 #[cfg(test)]
 pub fn test_root() -> PathBuf {
-    std::env::var_os("TRUFFLE_TEST_DIR").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(std::env::temp_dir)
+    std::env::var_os("CODA_TEST_DIR").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(std::env::temp_dir)
+}
+
+/// The app's old name. Its data folders (`%APPDATA%\truffle`, `%LOCALAPPDATA%\truffle`) are
+/// copied to Coda's on the first start, so logins, likes, listen-along links and the queue carry
+/// over. The old folders stay as they are, as a backup.
+const OLD_NAME: &str = "truffle";
+/// Coda's data folders' name.
+const NAME: &str = "coda";
+
+/// What [`migrate_from_old_name`] did, for the log (written once logging is set up).
+#[derive(Debug, Default)]
+pub struct Migration {
+    pub copied: Vec<(PathBuf, PathBuf)>,
+    pub failed: Vec<String>,
+}
+
+/// On the first start of Coda: copies the old Truffle data folders (roaming and local) to Coda's,
+/// each only when Coda's doesn't exist yet and Truffle's does. Called before anything else
+/// touches the data folders (also before the log file is made).
+pub fn migrate_from_old_name() -> Migration {
+    let mut done = Migration::default();
+    #[cfg(debug_assertions)]
+    if std::env::var_os(DEV_DATA_DIR_ENV).is_some_and(|v| !v.is_empty()) {
+        return done;
+    }
+    let (Some(old), Some(new)) = (directories::ProjectDirs::from("", "", OLD_NAME), directories::ProjectDirs::from("", "", NAME))
+    else {
+        return done;
+    };
+    let roots = [(old.config_dir().parent(), new.config_dir().parent()), (old.cache_dir().parent(), new.cache_dir().parent())];
+    for (from, to) in roots {
+        let (Some(from), Some(to)) = (from, to) else { continue };
+        // Roaming and local are one folder on some systems: copied once.
+        if done.copied.iter().any(|(f, _)| f == from) {
+            continue;
+        }
+        match migrate_dir(from, to, &mut done.failed) {
+            Ok(true) => done.copied.push((from.to_path_buf(), to.to_path_buf())),
+            Ok(false) => {}
+            Err(e) => done.failed.push(format!("{} -> {}: {e:#}", from.display(), to.display())),
+        }
+    }
+    done
+}
+
+/// Copies the folder `from` to `to` when `to` doesn't exist and `from` does. The copy goes to
+/// `<to>.migrating` first and is renamed into place once complete, so a copy cut off halfway
+/// is started again at the next start instead of leaving half the data. A file that can't be
+/// read (held by another program) is left out and named in `skipped`; the rest still comes over.
+/// Returns whether it copied.
+pub fn migrate_dir(from: &Path, to: &Path, skipped: &mut Vec<String>) -> Result<bool> {
+    if to.exists() || !from.is_dir() {
+        return Ok(false);
+    }
+    let mut partial = to.as_os_str().to_owned();
+    partial.push(".migrating");
+    let partial = PathBuf::from(partial);
+    if partial.exists() {
+        std::fs::remove_dir_all(&partial).with_context(|| format!("couldn't clear {}", partial.display()))?;
+    }
+    copy_dir(from, &partial, skipped)?;
+    std::fs::rename(&partial, to).with_context(|| format!("couldn't move {} into place", partial.display()))?;
+    Ok(true)
+}
+
+fn copy_dir(from: &Path, to: &Path, skipped: &mut Vec<String>) -> Result<()> {
+    std::fs::create_dir_all(to).with_context(|| format!("couldn't make {}", to.display()))?;
+    for entry in std::fs::read_dir(from).with_context(|| format!("couldn't read {}", from.display()))? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let target = to.join(entry.file_name());
+        if kind.is_dir() {
+            copy_dir(&entry.path(), &target, skipped)?;
+        } else if kind.is_file()
+            && let Err(e) = std::fs::copy(entry.path(), &target)
+        {
+            skipped.push(format!("{}: {e}", entry.path().display()));
+        }
+        // Links are left out: the app never makes any.
+    }
+    Ok(())
 }
 
 impl Paths {
@@ -51,7 +132,7 @@ impl Paths {
             std::fs::create_dir_all(&paths.cache)?;
             return Ok(paths);
         }
-        let dirs = directories::ProjectDirs::from("", "", "truffle")
+        let dirs = directories::ProjectDirs::from("", "", "coda")
             .context("could not find a home directory")?;
         let paths = Self {
             config: dirs.config_dir().to_path_buf(),
@@ -66,7 +147,7 @@ impl Paths {
         self.config.join("settings.json")
     }
     /// Listen-along links (one per friend), kicks and removed links. Not in settings.json: an
-    /// older Truffle saves that whole file at every exit and drops what it doesn't know, which
+    /// older Coda saves that whole file at every exit and drops what it doesn't know, which
     /// would let every kicked friend back in.
     pub fn listen_links_file(&self) -> PathBuf {
         self.config.join("listen_links.json")
@@ -107,13 +188,13 @@ impl Paths {
     pub fn image_cache_dir(&self) -> PathBuf {
         self.cache.join("images")
     }
-    /// Truffle's data folder (`%LOCALAPPDATA%\truffle`): the cache folder's parent, which also has
+    /// Coda's data folder (`%LOCALAPPDATA%\coda`): the cache folder's parent, which also has
     /// the logs (and may have yt-dlp).
     pub fn data_dir(&self) -> PathBuf {
         self.cache.parent().map_or_else(|| self.cache.clone(), Path::to_path_buf)
     }
 
-    /// Delete temp files that [`write_json`] left behind when Truffle was killed between writing
+    /// Delete temp files that [`write_json`] left behind when Coda was killed between writing
     /// and renaming one. Call once at startup.
     pub fn remove_stale_temp_files(&self) {
         for dir in [self.config.clone(), self.cache.clone(), self.tracks_cache_dir()] {
@@ -212,7 +293,7 @@ impl From<BannerSaved> for Banner {
     }
 }
 
-/// Which app icon Truffle shows (window, taskbar, tray).
+/// Which app icon Coda shows (window, taskbar, tray).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum AppIcon {
     /// The one that stands out on the taskbar: silver on a dark one, black on a light one.
@@ -350,7 +431,7 @@ impl Default for Wallpaper {
 }
 
 /// The wallpaper as saved. Files from before the fit choices had only `fit_whole` (all of the
-/// picture, or filling the area): it is still written, so an older Truffle shows the same fit.
+/// picture, or filling the area): it is still written, so an older Coda shows the same fit.
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 struct WallpaperSaved {
@@ -424,7 +505,7 @@ pub struct Settings {
     /// Accent colour as RGB.
     pub accent: [u8; 3],
     /// The interface size from before each screen had its own (1.0 = none). It becomes the size of
-    /// the screen Truffle next opens on, and is 1.0 from then on (`ui/screens.rs`).
+    /// the screen Coda next opens on, and is 1.0 from then on (`ui/screens.rs`).
     pub ui_scale: f32,
     /// Optional Spotify developer app client id for Web API editing features.
     pub webapi_client_id: Option<String>,
@@ -452,10 +533,10 @@ pub struct Settings {
     // --- Listen along (controller-owned: changed through Commands) ---
     /// Friends may listen along: what plays is written to their links (`listen_links.json`).
     pub listen_share: bool,
-    /// The link older Truffles write to (`spotify:playlist:...`): always the first link that
+    /// The link older Codas write to (`spotify:playlist:...`): always the first link that
     /// isn't kicked. One they make is taken in as a link at the next start.
     pub listen_channel: Option<String>,
-    /// Truffle hosts joined with a link: (name, channel uri).
+    /// Coda hosts joined with a link: (name, channel uri).
     pub listen_hosts: Vec<(String, String)>,
 
     // --- Windows integration (UI-owned) ---
@@ -470,7 +551,7 @@ pub struct Settings {
     /// showed. Read to carry the choice over (see [`Settings::load`]), never saved again.
     #[serde(skip_serializing)]
     pub close_to_tray: Option<bool>,
-    /// Start Truffle when Windows starts (HKCU Run key), hidden in the tray (minimised without it).
+    /// Start Coda when Windows starts (HKCU Run key), hidden in the tray (minimised without it).
     pub start_with_windows: bool,
     /// Discord "Listening to" status. No join/party features are ever sent.
     pub discord_status: bool,
@@ -498,7 +579,7 @@ pub struct Settings {
     pub screen_sizes: std::collections::BTreeMap<String, f32>,
     /// "Grow with the window": the interface gets bigger on wide windows (up to 1.5 times).
     pub grow_with_window: bool,
-    /// Screens Truffle told it made itself bigger on (once each).
+    /// Screens Coda told it made itself bigger on (once each).
     pub big_screen_tips: std::collections::BTreeSet<String>,
     /// Optional full custom colour scheme on top of the dark/light base.
     pub custom_colors: Option<CustomColors>,
@@ -512,9 +593,9 @@ pub struct Settings {
     /// (logical points); `None` until first resized.
     pub library_width: Option<f32>,
     pub deck_width: Option<f32>,
-    /// Banner pictures for list pages, shown only in Truffle, by `Source::cache_key`.
+    /// Banner pictures for list pages, shown only in Coda, by `Source::cache_key`.
     pub banners: std::collections::BTreeMap<String, Banner>,
-    /// The Settings window's size (points), once resized; it opens over the middle of Truffle.
+    /// The Settings window's size (points), once resized; it opens over the middle of Coda.
     pub settings_size: Option<[f32; 2]>,
     /// The app icon's style.
     pub app_icon: AppIcon,
@@ -560,7 +641,7 @@ pub struct Settings {
     pub stage_window_size: Option<[f32; 2]>,
 
     // --- Updates (UI-owned) ---
-    /// Look for a new Truffle on GitHub once a day.
+    /// Look for a new Coda on GitHub once a day.
     pub check_updates: bool,
     /// Versions "Skip this version" was chosen for.
     pub skipped_updates: Vec<String>,
@@ -568,7 +649,7 @@ pub struct Settings {
     pub update_remind_after: u64,
     /// When the last check for updates came back (unix seconds).
     pub update_last_check: u64,
-    /// The version that ran last, for the one "Truffle is updated to" note after an update.
+    /// The version that ran last, for the one "Coda is updated to" note after an update.
     pub last_run_version: Option<String>,
 }
 
@@ -664,7 +745,7 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// Load settings.json. A file that is briefly locked (another Truffle finishing its save, a
+    /// Load settings.json. A file that is briefly locked (another Coda finishing its save, a
     /// virus scanner) is retried, and a file with one bad value keeps every other value instead
     /// of silently falling back to all defaults (which the next save would then write to disk).
     pub fn load(paths: &Paths) -> Self {
@@ -815,7 +896,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 /// Renames `from` over `to`, retrying for about a second while Windows refuses (a virus scan or a
-/// reader holding the file open). Saves in this copy of Truffle take turns, so two of them renaming
+/// reader holding the file open). Saves in this copy of Coda take turns, so two of them renaming
 /// over the same file at once can't refuse each other.
 fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
     const ATTEMPTS: u32 = 6;
@@ -863,7 +944,7 @@ pub fn quarantine(path: &Path) -> Option<PathBuf> {
 }
 
 /// Temp files of a write that never finished are deleted once they are this old (younger ones
-/// may belong to another copy of Truffle writing right now).
+/// may belong to another copy of Coda writing right now).
 const STALE_TEMP_AGE: Duration = Duration::from_secs(60);
 
 /// Delete `<name>.json.<pid>-<n>.tmp` files in `dir` left by an interrupted [`write_atomic`].
@@ -896,11 +977,68 @@ mod tests {
     use super::*;
 
     fn temp_paths(name: &str) -> Paths {
-        let root = std::env::temp_dir().join(format!("truffle-settings-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("coda-settings-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let paths = Paths { config: root.join("config"), cache: root.join("cache") };
         std::fs::create_dir_all(&paths.config).unwrap();
         paths
+    }
+
+    fn migrate_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("coda-migrate-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn old_data_is_copied_once_and_kept() {
+        let root = migrate_root("copy");
+        let (old, new) = (root.join("truffle"), root.join("coda"));
+        std::fs::create_dir_all(old.join("config").join("librespot")).unwrap();
+        std::fs::write(old.join("config").join("settings.json"), b"{\"volume\":0.5}").unwrap();
+        std::fs::write(old.join("config").join("librespot").join("credentials.json"), b"login").unwrap();
+        std::fs::write(old.join("config").join("listen_links.json"), b"links").unwrap();
+        let mut skipped = Vec::new();
+        assert!(migrate_dir(&old, &new, &mut skipped).unwrap());
+        assert!(skipped.is_empty(), "{skipped:?}");
+        assert_eq!(std::fs::read(new.join("config").join("settings.json")).unwrap(), b"{\"volume\":0.5}");
+        assert_eq!(std::fs::read(new.join("config").join("librespot").join("credentials.json")).unwrap(), b"login");
+        assert_eq!(std::fs::read(new.join("config").join("listen_links.json")).unwrap(), b"links");
+        // The old folder stays as a backup.
+        assert!(old.join("config").join("settings.json").is_file());
+        assert!(!root.join("coda.migrating").exists());
+        // Once Coda has its own folder, nothing is copied over it again.
+        std::fs::write(new.join("config").join("settings.json"), b"{\"volume\":0.9}").unwrap();
+        std::fs::write(old.join("config").join("settings.json"), b"{\"volume\":0.1}").unwrap();
+        assert!(!migrate_dir(&old, &new, &mut skipped).unwrap());
+        assert_eq!(std::fs::read(new.join("config").join("settings.json")).unwrap(), b"{\"volume\":0.9}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn nothing_to_migrate_without_old_data() {
+        let root = migrate_root("none");
+        let mut skipped = Vec::new();
+        assert!(!migrate_dir(&root.join("truffle"), &root.join("coda"), &mut skipped).unwrap());
+        assert!(!root.join("coda").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_copy_cut_off_halfway_is_redone() {
+        let root = migrate_root("partial");
+        let (old, new) = (root.join("truffle"), root.join("coda"));
+        std::fs::create_dir_all(old.join("config")).unwrap();
+        std::fs::write(old.join("config").join("state.json"), b"queue").unwrap();
+        // What a copy killed halfway leaves behind.
+        std::fs::create_dir_all(root.join("coda.migrating").join("half")).unwrap();
+        let mut skipped = Vec::new();
+        assert!(migrate_dir(&old, &new, &mut skipped).unwrap());
+        assert_eq!(std::fs::read(new.join("config").join("state.json")).unwrap(), b"queue");
+        assert!(!new.join("half").exists(), "the half copy is thrown away");
+        assert!(!root.join("coda.migrating").exists());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -958,7 +1096,7 @@ mod tests {
         assert_eq!((fill.fit, fill.at_x, fill.strength), (WallpaperFit::Fill, 0.5, 40));
         assert_eq!(serde_json::from_str::<Wallpaper>(r#"{"path":"a.png"}"#).unwrap().fit, WallpaperFit::Fill);
 
-        // Saved again: the fit by name, and the old switch too, for an older Truffle.
+        // Saved again: the fit by name, and the old switch too, for an older Coda.
         s.save(&paths).unwrap();
         let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(paths.settings_file()).unwrap()).unwrap();
         assert_eq!((saved["wallpaper"]["fit"].as_str(), saved["wallpaper"]["fit_whole"].as_bool()), (Some("Whole"), Some(true)));
@@ -1005,7 +1143,7 @@ mod tests {
             let back: Settings = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
             assert_eq!(back, s);
         }
-        // One this Truffle doesn't know (from a newer one): Card, and every other value kept.
+        // One this Coda doesn't know (from a newer one): Card, and every other value kept.
         let newer = Settings::from_partial(br#"{"friends_layout":"Grid","friends_links_open":true}"#);
         assert_eq!((newer.friends_layout, newer.friends_links_open), (FriendsLayout::Card, true));
     }
@@ -1039,7 +1177,7 @@ mod tests {
             let back: Settings = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
             assert_eq!(back, s);
         }
-        // One this Truffle doesn't know (from a newer one): Centred, and every other value kept.
+        // One this Coda doesn't know (from a newer one): Centred, and every other value kept.
         let newer = Settings::from_partial(br#"{"wide_screens":"Three","volume":40}"#);
         assert_eq!((newer.wide_screens, newer.volume), (WideScreens::Centred, 40));
     }
@@ -1068,7 +1206,7 @@ mod tests {
 
     #[test]
     fn concurrent_writes_to_one_file_all_succeed() {
-        let dir = std::env::temp_dir().join(format!("truffle-config-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-config-test-{}", std::process::id()));
         let file = dir.join("settings.json");
         let writers: Vec<_> = (0..8u32)
             .map(|i| {
@@ -1090,7 +1228,7 @@ mod tests {
 
     #[test]
     fn unreadable_files_are_set_aside_and_stale_temp_files_removed() {
-        let dir = std::env::temp_dir().join(format!("truffle-config-test2-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-config-test2-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("state.json");
         std::fs::write(&file, [0u8; 64]).unwrap();
@@ -1116,7 +1254,7 @@ mod tests {
 
     #[test]
     fn shared_settings_are_saved_without_holding_their_lock() {
-        let dir = std::env::temp_dir().join(format!("truffle-config-test3-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-config-test3-{}", std::process::id()));
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let shared = std::sync::Arc::new(Mutex::new(Settings::default()));
         let writers: Vec<_> = (0..4u8)

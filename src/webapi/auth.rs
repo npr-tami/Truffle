@@ -20,7 +20,7 @@ use super::{REDIRECT_URI, ReconnectRequired, WebApi, http};
 pub(super) const AUTHORIZE_URL: &str = "https://accounts.spotify.com/authorize";
 pub(super) const TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 
-/// Scopes Truffle asks for.
+/// Scopes Coda asks for.
 pub const SCOPES: &[&str] = &[
     "playlist-read-private",
     "playlist-read-collaborative",
@@ -34,9 +34,9 @@ pub const SCOPES: &[&str] = &[
 
 const CALLBACK_PORT: u16 = 8899;
 const CALLBACK_PATH: &str = "/callback";
-/// How long the browser sign-in may take before Truffle gives up.
+/// How long the browser sign-in may take before Coda gives up.
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
-/// How long the browser tab waits for Truffle to say how the sign-in ended.
+/// How long the browser tab waits for Coda to say how the sign-in ended.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(60);
 /// Deadline for exchanging the code for tokens, kept below `REPLY_TIMEOUT` so the browser shows
 /// the real outcome (each token request may take up to 30 s and is retried).
@@ -131,7 +131,7 @@ pub(super) fn load_token(path: &Path) -> Option<StoredToken> {
 
 pub(super) fn save_token(path: &Path, token: &StoredToken) -> Result<()> {
     crate::config::write_json(path, token)
-        .context("Truffle couldn't save the Spotify Web API sign-in to disk")
+        .context("coda couldn't save the Spotify Web API sign-in to disk")
 }
 
 pub(super) fn delete_token(path: &Path) -> Result<()> {
@@ -140,7 +140,7 @@ pub(super) fn delete_token(path: &Path) -> Result<()> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => {
             log::warn!("could not delete {}: {e}", path.display());
-            Err(anyhow!("Truffle couldn't remove the saved Spotify Web API sign-in ({e})."))
+            Err(anyhow!("coda couldn't remove the saved Spotify Web API sign-in ({e})."))
         }
     }
 }
@@ -293,7 +293,7 @@ pub(super) async fn request_token(
                 continue;
             }
             return Err(TokenError::Other(anyhow!(
-                "Spotify's sign-in service asked Truffle to slow down. Please try again in {}.",
+                "Spotify's sign-in service asked coda to slow down. Please try again in {}.",
                 http::friendly_duration(Duration::from_secs(wait))
             )));
         }
@@ -516,8 +516,8 @@ pub(super) async fn interactive_login(client: &reqwest::Client, client_id: &str)
             };
             let page = match &result {
                 Ok(_) => Page::success(
-                    "Truffle is connected",
-                    "Playlist editing is now switched on. You can close this tab and go back to Truffle.",
+                    "coda is connected",
+                    "Playlist editing is now switched on. You can close this tab and go back to coda.",
                 ),
                 Err(e) => Page::failure("Sign-in didn't finish", &e.to_string()),
             };
@@ -526,11 +526,11 @@ pub(super) async fn interactive_login(client: &reqwest::Client, client_id: &str)
         }
         CallbackResult::Denied(error) => {
             let message = if error == "access_denied" {
-                "You chose not to give Truffle access, so playlist editing stays off. You can connect \
-                 again any time from Truffle's settings."
+                "You chose not to give coda access, so playlist editing stays off. You can connect \
+                 again any time from coda's settings."
                     .to_owned()
             } else {
-                format!("Spotify reported a sign-in problem ({error}). Please go back to Truffle and try again.")
+                format!("Spotify reported a sign-in problem ({error}). Please go back to coda and try again.")
             };
             let _ = callback.reply.send(Page::failure("Sign-in cancelled", &message));
             Err(anyhow!(message))
@@ -551,8 +551,8 @@ async fn bind_callback_listener() -> Result<TcpListener> {
             Err(e) => {
                 log::error!("cannot bind {addr}: {e}");
                 bail!(
-                    "Truffle couldn't start its sign-in helper on port {CALLBACK_PORT} ({e}). Another program, \
-                     or another copy of Truffle, may be using it. Close it and try again."
+                    "coda couldn't start its sign-in helper on port {CALLBACK_PORT} ({e}). Another program, \
+                     or another copy of coda, may be using it. Close it and try again."
                 );
             }
         }
@@ -568,13 +568,13 @@ async fn open_browser(url: &str) -> Result<()> {
         Ok(Err(e)) => {
             log::error!("could not open the browser: {e}");
             bail!(
-                "Truffle couldn't open your web browser for the Spotify sign-in. Make sure Windows has a \
+                "coda couldn't open your web browser for the Spotify sign-in. Make sure Windows has a \
                  default browser set, then try again."
             )
         }
         Err(e) => {
             log::error!("browser launcher task failed: {e}");
-            bail!("Truffle couldn't open your web browser for the Spotify sign-in. Please try again.")
+            bail!("coda couldn't open your web browser for the Spotify sign-in. Please try again.")
         }
     }
 }
@@ -588,7 +588,7 @@ enum CallbackResult {
 
 struct Callback {
     result: CallbackResult,
-    /// The page to show in the browser once Truffle knows how the sign-in ended.
+    /// The page to show in the browser once Coda knows how the sign-in ended.
     reply: oneshot::Sender<Page>,
 }
 
@@ -609,7 +609,7 @@ async fn wait_for_callback(
             Some(callback) = rx.recv() => return Ok(callback),
             _ = &mut deadline => {
                 bail!(
-                    "The Spotify sign-in wasn't completed within 5 minutes, so Truffle stopped waiting. \
+                    "The Spotify sign-in wasn't completed within 5 minutes, so coda stopped waiting. \
                      Click Connect to try again. If the browser showed \"INVALID_CLIENT: Invalid redirect \
                      URI\", first add {REDIRECT_URI} to your app's Redirect URIs on developer.spotify.com."
                 );
@@ -657,7 +657,7 @@ fn classify_callback(target: &str, expected_state: &str) -> CallbackRequest {
     if state.as_deref() != Some(expected_state) {
         return CallbackRequest::Rejected(Page::failure(
             "This sign-in link is out of date",
-            "Go back to Truffle and click Connect again.",
+            "Go back to coda and click Connect again.",
         ));
     }
     if let Some(error) = error {
@@ -667,7 +667,7 @@ fn classify_callback(target: &str, expected_state: &str) -> CallbackRequest {
         Some(code) if !code.is_empty() => CallbackRequest::Accepted(CallbackResult::Code(code)),
         _ => CallbackRequest::Rejected(Page::failure(
             "Sign-in incomplete",
-            "Spotify didn't send a sign-in code. Go back to Truffle and click Connect again.",
+            "Spotify didn't send a sign-in code. Go back to coda and click Connect again.",
         )),
     }
 }
@@ -676,7 +676,7 @@ async fn serve_callback_connection(mut stream: TcpStream, expected_state: String
     let target = match tokio::time::timeout(Duration::from_secs(15), read_request_target(&mut stream)).await {
         Ok(Ok(Some(target))) => target,
         Ok(Ok(None)) => {
-            let page = Page::failure("Bad request", "Truffle didn't understand this request.");
+            let page = Page::failure("Bad request", "coda didn't understand this request.");
             let _ = write_html(&mut stream, "400 Bad Request", &page.render()).await;
             return;
         }
@@ -686,7 +686,7 @@ async fn serve_callback_connection(mut stream: TcpStream, expected_state: String
 
     let page = match classify_callback(&target, &expected_state) {
         CallbackRequest::NotCallback => {
-            let page = Page::failure("Not found", "This address is only used for signing in to Truffle.");
+            let page = Page::failure("Not found", "This address is only used for signing in to coda.");
             let _ = write_html(&mut stream, "404 Not Found", &page.render()).await;
             return;
         }
@@ -695,17 +695,17 @@ async fn serve_callback_connection(mut stream: TcpStream, expected_state: String
             let (reply_tx, reply_rx) = oneshot::channel();
             if tx.send(Callback { result, reply: reply_tx }).await.is_err() {
                 Page::failure(
-                    "Truffle isn't waiting for this sign-in",
-                    "This sign-in has already finished or was cancelled. Go back to Truffle and click \
+                    "coda isn't waiting for this sign-in",
+                    "This sign-in has already finished or was cancelled. Go back to coda and click \
                      Connect if you want to try again.",
                 )
             } else {
                 match tokio::time::timeout(REPLY_TIMEOUT, reply_rx).await {
                     Ok(Ok(page)) => page,
-                    // Truffle hasn't said how it ended: don't claim success.
+                    // Coda hasn't said how it ended: don't claim success.
                     _ => Page::info(
-                        "Finishing in Truffle",
-                        "Truffle received your sign-in and is still finishing it. Go back to Truffle to see \
+                        "Finishing in coda",
+                        "coda received your sign-in and is still finishing it. Go back to coda to see \
                          whether playlist editing is connected; you can close this tab.",
                     ),
                 }
@@ -761,7 +761,7 @@ async fn write_html(stream: &mut TcpStream, status: &str, body: &str) -> std::io
     stream.shutdown().await
 }
 
-/// How a sign-in page looks: done, failed, or "see Truffle" (outcome unknown here).
+/// How a sign-in page looks: done, failed, or "see Coda" (outcome unknown here).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PageKind {
     Success,
@@ -803,7 +803,7 @@ impl Page {
         format!(
             "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
              <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\
-             <title>Truffle - {title}</title><style>\
+             <title>coda - {title}</title><style>\
              body{{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\
              background:#121212;color:#eaeaea;font-family:'Segoe UI',system-ui,sans-serif}}\
              main{{max-width:30rem;padding:2rem;text-align:center}}\

@@ -1,5 +1,5 @@
 //! The interface size, per screen. Each screen keeps its own: the one set there (Ctrl + / Ctrl −,
-//! or Settings), else one picked from the screen's height, so Truffle isn't tiny on a big screen.
+//! or Settings), else one picked from the screen's height, so Coda isn't tiny on a big screen.
 //! The picked one also fits the full window: never bigger than the window has room for (at least
 //! the room the default window has at 100%), never below 100%.
 //! Ctrl 0 goes back to the picked one. "Grow with the window" makes it bigger on a wide window,
@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use egui::gui_zoom::kb_shortcuts;
 
-use super::TruffleApp;
+use super::CodaApp;
 use super::window::{self, Monitor};
 use crate::config::Settings;
 
@@ -28,7 +28,7 @@ const ROOM: egui::Vec2 = window::FULL_DEFAULT_SIZE;
 /// stayed this long.
 const GROW_SETTLE: Duration = Duration::from_millis(300);
 /// Shown once on each screen auto size made bigger.
-const BIG_SCREEN_TIP: &str = "Big screen: Truffle made itself bigger. Ctrl + and Ctrl − change it.";
+const BIG_SCREEN_TIP: &str = "Big screen: coda made itself bigger. Ctrl + and Ctrl − change it.";
 
 /// A screen: what tells it apart from the others (its size is kept by it) and its height in
 /// Windows' own units (pixels divided by Windows' scale: egui points at zoom 1).
@@ -180,11 +180,11 @@ pub fn press(prefs: &mut Settings, screen: Option<&Screen>, size: f32, key: Zoom
 pub struct Arrival {
     /// The settings changed.
     pub changed: bool,
-    /// Truffle made itself bigger here for the first time: say so.
+    /// Coda made itself bigger here for the first time: say so.
     pub tip: bool,
 }
 
-/// Truffle opened on `screen`, or its window moved there. A size from before each screen had its
+/// Coda opened on `screen`, or its window moved there. A size from before each screen had its
 /// own was chosen by the user: it becomes this screen's (if it has none yet).
 pub fn arrive(prefs: &mut Settings, screen: &Screen) -> Arrival {
     let mut arrival = Arrival::default();
@@ -355,7 +355,7 @@ impl ScreenZoom {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Runs every drawn pass, before anything is drawn: follows the window to another screen,
     /// takes Ctrl + / Ctrl − / Ctrl 0, and applies the size on the window's screen, times its
     /// growth with "Grow with the window" on. `measured` is from [`ScreenZoom::next_pass`].
@@ -605,7 +605,7 @@ mod tests {
         let mut prefs = Settings { ui_scale: 1.3, ..Settings::default() };
         // Before a screen is known, the older size is used.
         assert_eq!(size_on(&prefs, None), 1.3);
-        // The screen Truffle opens on takes it, instead of its auto size, and no tip.
+        // The screen Coda opens on takes it, instead of its auto size, and no tip.
         assert_eq!(arrive(&mut prefs, &first), Arrival { changed: true, tip: false });
         assert_eq!((size_on(&prefs, Some(&first)), prefs.ui_scale), (1.3, 1.0));
         // Only once: the next screen has its own.

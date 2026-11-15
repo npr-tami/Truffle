@@ -85,7 +85,7 @@ pub enum Source {
     Album(String),
     /// An artist's top songs, opened from search or a song.
     Artist(String),
-    /// One of Truffle's own mixes, made from Liked Songs and play counts (`library::MIX_*`).
+    /// One of Coda's own mixes, made from Liked Songs and play counts (`library::MIX_*`).
     Mix(String),
 }
 
@@ -331,7 +331,7 @@ pub struct CollectionItem {
     pub newest: usize,
 }
 
-/// One of Truffle's own mixes (Home's For you).
+/// One of Coda's own mixes (Home's For you).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MixInfo {
     pub id: String,
@@ -361,7 +361,7 @@ pub struct Collection {
     pub artists: Vec<CollectionItem>,
 }
 
-/// Whom a listener follows: someone in Spotify's friend activity (their username), or a Truffle
+/// Whom a listener follows: someone in Spotify's friend activity (their username), or a Coda
 /// host's listen-along channel (its playlist uri).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ListenHow {
@@ -418,7 +418,7 @@ pub enum LinkState {
     Gone,
 }
 
-/// "Your Truffle" on Settings > About: what the play counts add up to.
+/// "Your Coda" on Settings > About: what the play counts add up to.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PlayStats {
     /// Plays of every song together.
@@ -438,7 +438,7 @@ pub struct TopSong {
 }
 
 impl PlayStats {
-    /// From Truffle's play counts (song uri -> plays). Of songs played equally often, the one whose
+    /// From Coda's play counts (song uri -> plays). Of songs played equally often, the one whose
     /// uri sorts first is the top song, so it is the same one every time.
     pub fn from_counts(counts: &std::collections::HashMap<String, u32>) -> Self {
         let mut stats = Self::default();
@@ -504,7 +504,7 @@ pub struct Helpers {
 /// Requests from the UI to the controller.
 #[derive(Debug, Clone)]
 pub enum Command {
-    /// "Your Truffle" on Settings > About (Event::PlayStats answers, a second time once the most
+    /// "Your Coda" on Settings > About (Event::PlayStats answers, a second time once the most
     /// played song's name is looked up).
     PlayStats,
     /// The YouTube helpers' versions, for Settings > About (Event::Helpers answers).
@@ -513,7 +513,7 @@ pub enum Command {
     Lyrics(String),
     /// Fetch a song's Canvas, its looping video (Event::Canvas answers).
     Canvas(String),
-    /// Which of the user's playlists hold every one of these songs, from the lists Truffle has (no
+    /// Which of the user's playlists hold every one of these songs, from the lists Coda has (no
     /// network): the Add to playlist menu marks them Added.
     HeldBy(Vec<String>),
     /// The albums and artists of Liked Songs (Event::Collection answers, twice: then with the
@@ -614,7 +614,7 @@ pub enum Command {
     FindDuplicates(String),
     /// Take rows out of a playlist read with `FindDuplicates`: `tracks` is the playlist as read,
     /// `rows` places in it. Only those copies go, also if the playlist changed meanwhile, or none
-    /// when Truffle can't tell which they are.
+    /// when Coda can't tell which they are.
     RemoveDuplicates { playlist_uri: String, tracks: Arc<Vec<TrackInfo>>, rows: Vec<usize> },
     /// Make a new, empty private playlist.
     CreatePlaylist { name: String },
@@ -628,7 +628,7 @@ pub enum Command {
     ListenShare(bool),
     /// Join with a pasted listen-along link.
     ListenJoin(String),
-    /// Forget a remembered Truffle host (by their channel's uri).
+    /// Forget a remembered Coda host (by their channel's uri).
     ListenForget(String),
     /// Make a listen-along link for one friend (`name` stays on this PC).
     ListenNewLink { name: String },
@@ -653,7 +653,7 @@ pub enum Command {
 pub struct LastfmStatus {
     /// A session key is stored and accepted.
     pub connected: bool,
-    /// Waiting for the user to approve Truffle in the browser.
+    /// Waiting for the user to approve Coda in the browser.
     pub connecting: bool,
     /// The Last.fm user name of the saved sign-in (while `connected`, and while `stopped`).
     pub username: Option<String>,
@@ -668,7 +668,7 @@ pub struct LastfmStatus {
     /// Disconnect and the scrobbling switch.
     pub stopped: Option<String>,
     /// Of `pending`: plays recorded for another Last.fm account than the saved sign-in (or by an
-    /// older Truffle), so they are only sent to it if the user says so. All of them while there
+    /// older Coda), so they are only sent to it if the user says so. All of them while there
     /// is no sign-in.
     pub held: usize,
     /// The account the `held` plays were recorded for, when that is one known account.
@@ -727,7 +727,7 @@ pub enum Event {
     /// An event about one account's library (Spotify username): dropped if another account is
     /// logged in by the time it comes.
     ForAccount { account: String, event: Box<Event> },
-    /// "Your Truffle" on Settings > About.
+    /// "Your Coda" on Settings > About.
     PlayStats(PlayStats),
     /// The YouTube helpers' versions.
     Helpers(Helpers),
@@ -754,7 +754,7 @@ pub enum Event {
     ProfileFailed { username: String, message: String },
     /// A follow (or unfollow) went through (`ok`), or Spotify refused it.
     FollowDone { uri: String, follow: bool, generation: u64, ok: bool },
-    /// Truffle's own mixes.
+    /// Coda's own mixes.
     Mixes(Arc<Vec<MixInfo>>),
     /// How many of the songs in Up next were queued by the user (they come first).
     Queued(usize),
@@ -818,7 +818,7 @@ pub enum Event {
     Duplicates { uri: String, tracks: Option<Arc<Vec<TrackInfo>>> },
     /// Listening along with someone (`None`: not).
     Listening(Option<ListenStatus>),
-    /// Friends may listen along (`on`), and the link older Truffles write to (the first link not
+    /// Friends may listen along (`on`), and the link older Codas write to (the first link not
     /// kicked, if any; the Friends tab shows every link from `ListenLinks` instead).
     ListenShare {
         on: bool,
@@ -831,7 +831,7 @@ pub enum Event {
     Friends(Arc<Vec<Friend>>),
     /// What one user plays now (`None`: nothing Spotify shows).
     FriendPeek { username: String, friend: Option<Friend> },
-    /// A test aid (`truffle-selftest.request`, "open <page>"): the middle shows `page` as if it was
+    /// A test aid (`coda-selftest.request`, "open <page>"): the middle shows `page` as if it was
     /// clicked, and "opened <page>" goes to `report`.
     OpenPage { page: String, report: std::path::PathBuf },
 }

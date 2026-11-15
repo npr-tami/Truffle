@@ -166,7 +166,7 @@ mod tests {
     }
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("truffle-test-{tag}-{}-{}", std::process::id(), now_secs()));
+        let dir = std::env::temp_dir().join(format!("coda-test-{tag}-{}-{}", std::process::id(), now_secs()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn liked_songs_saved_by_older_truffles_still_load() {
+    fn liked_songs_saved_by_older_codas_still_load() {
         let dir = temp_dir("old-liked");
         let path = track_cache_path(&dir, &Source::LikedSongs);
         // Before usernames and sync tokens were kept.

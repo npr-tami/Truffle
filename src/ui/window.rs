@@ -12,7 +12,7 @@
 use egui::{Vec2, vec2};
 
 /// Title of the main window (`main.rs` creates the window with it).
-pub const WINDOW_TITLE: &str = "Truffle";
+pub const WINDOW_TITLE: &str = "coda";
 
 /// Size of the mini player, in points (it scales with the interface size like everything else).
 pub const MINI_SIZE: Vec2 = vec2(380.0, 120.0);
@@ -164,9 +164,9 @@ pub fn main_window_handle() -> Option<isize> {
 ///
 /// winit gives the UI thread an invisible helper window and marks it visible (it needs paint
 /// messages). Tools that close a program's "main window" from outside, such as PowerShell's
-/// `CloseMainWindow`, take the first visible one, and while Truffle is hidden in the tray that is
+/// `CloseMainWindow`, take the first visible one, and while Coda is hidden in the tray that is
 /// the helper. Windows' default answer to a close destroys it: egui never hears of the close and
-/// Truffle keeps running. Call once, on the UI thread.
+/// Coda keeps running. Call once, on the UI thread.
 pub fn forward_helper_close(main: isize) {
     #[cfg(windows)]
     {
@@ -351,9 +351,9 @@ mod win32 {
     const WM_SIZING: u32 = 0x0214;
     const WM_ENTERSIZEMOVE: u32 = 0x0231;
     const WM_EXITSIZEMOVE: u32 = 0x0232;
-    /// Tells Truffle's subclass of the helper apart from any other on it.
+    /// Tells Coda's subclass of the helper apart from any other on it.
     const HELPER_SUBCLASS_ID: usize = 1;
-    /// Tells Truffle's subclass of the main window (keeping the view's shape) apart.
+    /// Tells Coda's subclass of the main window (keeping the view's shape) apart.
     const SHAPE_SUBCLASS_ID: usize = 2;
     /// The shape the main window keeps while it is sized (width / height as f32 bits; 0: none), and
     /// its least width in logical pixels.

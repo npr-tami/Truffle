@@ -1,6 +1,6 @@
 //! Writes `assets/licences.txt`, the list Settings > About shows under "Open-source licences": every
-//! crate built into truffle.exe for Windows (its normal dependencies, followed all the way down) with
-//! its version and licence, from `cargo metadata`; then the font and the programs Truffle uses that
+//! crate built into coda.exe for Windows (its normal dependencies, followed all the way down) with
+//! its version and licence, from `cargo metadata`; then the font and the programs Coda uses that
 //! aren't crates. Run it again after changing dependencies:
 //!
 //! ```text
@@ -16,7 +16,7 @@ use std::process::Command;
 
 use serde_json::Value;
 
-/// Truffle is built for this target only.
+/// Coda is built for this target only.
 const TARGET: &str = "x86_64-pc-windows-msvc";
 
 /// Not crates: the font (assets/fonts/Inter-LICENSE.txt) and the programs YouTube sound runs.
@@ -47,7 +47,7 @@ fn licences(meta: &Value) -> String {
         meta["resolve"]["nodes"].as_array().expect("nodes").iter().map(|n| (n["id"].as_str().expect("node id"), n)).collect();
     let root = meta["resolve"]["root"].as_str().expect("the root package");
 
-    // Truffle's normal dependencies and theirs (build and dev dependencies aren't in the exe).
+    // Coda's normal dependencies and theirs (build and dev dependencies aren't in the exe).
     let mut seen: BTreeSet<&str> = BTreeSet::new();
     let mut todo = vec![root];
     while let Some(id) = todo.pop() {
@@ -74,7 +74,7 @@ fn licences(meta: &Value) -> String {
     crates.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()).then_with(|| a.1.cmp(&b.1)));
 
     let mut text = String::from(
-        "# The open-source code and font in Truffle, and the programs its YouTube sound uses, with their\n\
+        "# The open-source code and font in coda, and the programs its YouTube sound uses, with their\n\
          # licences: name, version and licence, split by tabs. Made by `cargo run --example licences`.\n",
     );
     for (name, version, licence) in OTHERS {

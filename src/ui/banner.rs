@@ -1,4 +1,4 @@
-//! Banners: a picture of the user's own across a list's header (its hero), shown only in Truffle.
+//! Banners: a picture of the user's own across a list's header (its hero), shown only in Coda.
 //! Set from the list's page (right-click the header, or the picture button on the play bar) and
 //! kept in `prefs.banners` by the list's `Source::cache_key`: the picture's full path and how it
 //! sits. "Adjust banner…" opens a box to move it (drag) and zoom it (wheel or slider), as in
@@ -20,7 +20,7 @@ use egui::{
 
 use crate::config::Banner;
 use crate::model::Source;
-use crate::ui::{TruffleApp, Undo};
+use crate::ui::{CodaApp, Undo};
 use crate::ui::fin;
 use crate::ui::theme::Palette;
 use crate::ui::wallpaper::{self, Cap, TEXTURE};
@@ -177,7 +177,7 @@ pub(in crate::ui) struct Adjusting {
     before: Banner,
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Runs every drawn frame (from `wallpaper_logic`): takes a picked file and finished loads.
     pub(in crate::ui) fn banner_logic(&mut self, ctx: &egui::Context) {
         while let Ok((key, picked)) = self.wallpaper.banners.picked_rx.try_recv() {
@@ -203,7 +203,7 @@ impl TruffleApp {
             let Some(i) = b.loading.iter().position(|(p, s)| *p == done.path && *s == done.serial) else { continue };
             b.loading.swap_remove(i);
             match done.result {
-                // Shrunk to fit already, but a texture too big for the graphics card would stop Truffle.
+                // Shrunk to fit already, but a texture too big for the graphics card would stop Coda.
                 Ok(image) if image.width() > max_side || image.height() > max_side => {
                     self.banner_failed(done.path, &done.name, "the picture is too large".to_owned());
                 }
@@ -264,7 +264,7 @@ impl TruffleApp {
         let (tx, ctx) = (b.loaded_tx.clone(), ctx.clone());
         let job_path = path.clone();
         let job_name = name.clone();
-        let spawned = std::thread::Builder::new().name("truffle-banner".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-banner".into()).spawn(move || {
             let result = wallpaper::decode(Path::new(&job_path), CAP, max_side);
             let _ = tx.send(Loaded { path: job_path, serial, name: job_name, result });
             ctx.request_repaint();
@@ -272,7 +272,7 @@ impl TruffleApp {
         if let Err(e) = spawned {
             log::warn!("could not start loading a banner: {e}");
             self.wallpaper.banners.loading.retain(|(_, s)| *s != serial);
-            self.banner_failed(path, &name, "Truffle couldn't start loading it".to_owned());
+            self.banner_failed(path, &name, "coda couldn't start loading it".to_owned());
         }
     }
 
@@ -309,7 +309,7 @@ impl TruffleApp {
         self.wallpaper.banners.picker_open = true;
         let tx = self.wallpaper.banners.picked_tx.clone();
         let ctx = ctx.clone();
-        let spawned = std::thread::Builder::new().name("truffle-file-dialog".into()).spawn(move || {
+        let spawned = std::thread::Builder::new().name("coda-file-dialog".into()).spawn(move || {
             let mut dialog = rfd::FileDialog::new()
                 .set_title("Choose a banner")
                 .add_filter("Images", &["jpg", "jpeg", "png", "webp"]);

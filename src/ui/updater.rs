@@ -12,7 +12,7 @@ use egui::{Align, Align2, CornerRadius, CursorIcon, Id, Layout, Rect, RichText, 
 use super::fin::{self, Look};
 use super::kit::{self, Kind};
 use super::theme::{bold, medium, regular};
-use super::TruffleApp;
+use super::CodaApp;
 use crate::model::PlayStatus;
 use crate::update::{self, Ask, Found, OURS, Progress};
 
@@ -23,7 +23,7 @@ const RETRY: Duration = Duration::from_secs(60 * 60);
 
 type CheckSlot = Arc<Mutex<Option<Result<Option<Found>, String>>>>;
 
-/// The updater's state while Truffle runs.
+/// The updater's state while Coda runs.
 pub(super) struct Updater {
     started: Instant,
     /// The newest release above this version, from the last check.
@@ -57,7 +57,7 @@ fn offset_secs() -> i64 {
     super::links::local_offset_ms() / 1000
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// What to do about the release found (nothing when none was).
     fn update_ask(&self) -> Ask {
         let Some(found) = &self.updater.found else { return Ask::Nothing };
@@ -76,7 +76,7 @@ impl TruffleApp {
             let last = self.prefs.last_run_version.clone();
             if last.as_deref() != Some(OURS) {
                 if last.is_some_and(|l| update::is_newer(OURS, &l)) {
-                    self.toast(format!("Truffle is updated to {OURS}"), false);
+                    self.toast(format!("coda is updated to {OURS}"), false);
                 }
                 self.prefs.last_run_version = Some(OURS.to_owned());
                 self.prefs_changed();
@@ -135,7 +135,7 @@ impl TruffleApp {
                 match (self.update_ask(), by_hand) {
                     (Ask::Popup, _) => self.updater.popup = true,
                     (_, true) if newer => self.updater.popup = true,
-                    (_, true) => self.toast(format!("You have the newest Truffle ({OURS})"), false),
+                    (_, true) => self.toast(format!("You have the newest coda ({OURS})"), false),
                     (_, false) => {}
                 }
             }
@@ -171,7 +171,7 @@ impl TruffleApp {
         self.updater.popup = false;
         self.prefs.check_updates = false;
         self.prefs_changed();
-        self.toast("Truffle won't look for updates. Turn it back on in Settings, About", false);
+        self.toast("coda won't look for updates. Turn it back on in Settings, About", false);
     }
 
     /// Update now: downloads in the background (the music plays on).
@@ -242,7 +242,7 @@ impl TruffleApp {
         w.min(ctx.content_rect().width() - 80.0).max(240.0)
     }
 
-    /// "Truffle X is ready": what's new and the four choices.
+    /// "Coda X is ready": what's new and the four choices.
     fn update_popup(&mut self, ctx: &egui::Context) {
         let Some(found) = self.updater.found.clone() else { return };
         let p = self.palette;
@@ -258,7 +258,7 @@ impl TruffleApp {
         let modal = fin::dialog(ctx, Id::new("update_popup"), |ui| {
             ui.set_width(Self::dialog_width(ctx, 480.0));
             let top = ui.cursor().top();
-            fin::dialog_head(ui, &format!("Truffle {} is ready", found.version), Some(&format!("You have {OURS}. What's new:")));
+            fin::dialog_head(ui, &format!("coda {} is ready", found.version), Some(&format!("You have {OURS}. What's new:")));
             let x = Rect::from_min_size(pos2(ui.max_rect().right() - 26.0, top - 4.0), vec2(26.0, 26.0));
             if fin::ib(ui, &p, x, Id::new("update_popup_x"), "x", Look::Plain, "Later (Esc)").clicked() {
                 choice = Choice::Later;
@@ -272,7 +272,7 @@ impl TruffleApp {
                             ui.add_space(10.0);
                         }
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(format!("Truffle {}", notes.version)).font(bold(13.0)).color(p.text_strong));
+                            ui.label(RichText::new(format!("coda {}", notes.version)).font(bold(13.0)).color(p.text_strong));
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                 ui.label(RichText::new(&notes.date).font(regular(12.0)).color(p.text_weak));
                             });
@@ -290,7 +290,7 @@ impl TruffleApp {
             ui.add_space(12.0);
             ui.add(
                 egui::Label::new(
-                    RichText::new("Truffle restarts by itself (a few seconds) and goes on with the same song, where it was.").font(regular(12.0)).color(p.text_weak),
+                    RichText::new("coda restarts by itself (a few seconds) and goes on with the same song, where it was.").font(regular(12.0)).color(p.text_weak),
                 )
                 .wrap(),
             );
@@ -324,7 +324,7 @@ impl TruffleApp {
         }
     }
 
-    /// "Updating to Truffle X": the download's progress and the steps, and Cancel.
+    /// "Updating to Coda X": the download's progress and the steps, and Cancel.
     fn installing_dialog(&mut self, ctx: &egui::Context) {
         let Some(progress) = self.updater.install.clone() else { return };
         let version = self.updater.found.as_ref().map_or_else(String::new, |f| f.version.clone());
@@ -335,7 +335,7 @@ impl TruffleApp {
         let mut cancel = false;
         fin::dialog(ctx, Id::new("update_installing"), |ui| {
             ui.set_width(Self::dialog_width(ctx, 420.0));
-            fin::dialog_head(ui, &format!("Updating to Truffle {version}"), Some("Your music keeps playing until the restart."));
+            fin::dialog_head(ui, &format!("Updating to coda {version}"), Some("Your music keeps playing until the restart."));
             ui.add_space(16.0);
             let (bar, _) = ui.allocate_exact_size(vec2(ui.available_width(), 6.0), Sense::hover());
             let share = done as f32 / size as f32;
@@ -353,7 +353,7 @@ impl TruffleApp {
             ui.add_space(14.0);
             let steps = [
                 "Get the new version from GitHub".to_owned(),
-                format!("Check it's really Truffle {version} (size and checksum)"),
+                format!("Check it's really coda {version} (size and checksum)"),
                 "Save your place, swap the exe, restart".to_owned(),
             ];
             for (k, step) in steps.iter().enumerate() {
@@ -393,7 +393,7 @@ impl TruffleApp {
         let (mut later, mut again) = (false, false);
         let modal = fin::dialog(ctx, Id::new("update_failed"), |ui| {
             ui.set_width(Self::dialog_width(ctx, 420.0));
-            let note = format!("{why}. Nothing was changed: Truffle {OURS} still works as before.");
+            let note = format!("{why}. Nothing was changed: coda {OURS} still works as before.");
             fin::dialog_head(ui, "Couldn't update", Some(&note));
             ui.add_space(18.0);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -418,7 +418,7 @@ impl TruffleApp {
         let galley = ui.painter().layout_no_wrap("Update ready".to_owned(), medium(12.0), p.text);
         let w = 12.0 + 7.0 + 7.0 + galley.size().x + 12.0;
         let rect = Rect::from_min_size(pos2(right - w, cy - 15.0), vec2(w, 30.0));
-        let resp = ui.interact(rect, Id::new("update-pill"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).on_hover_text("A new Truffle is ready");
+        let resp = ui.interact(rect, Id::new("update-pill"), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).on_hover_text("A new coda is ready");
         let fill = fin::acc(&p, if resp.hovered() { 0.24 } else { 0.16 });
         ui.painter().rect(rect, CornerRadius::same(15), fill, Stroke::new(1.0, fin::acc(&p, 0.35)), egui::StrokeKind::Inside);
         ui.painter().circle_filled(pos2(rect.left() + 12.0 + 3.5, cy), 3.5, p.accent_ink);
@@ -446,7 +446,7 @@ impl TruffleApp {
                 format!("You have {OURS}")
             };
             let w = fin::text_button_w(ui, "Update now", false) + fin::text_button_w(ui, "Skip this version", false) + fin::text_button_w(ui, "What's new", false) + 16.0;
-            kit::row(ui, &p, &format!("Truffle {} is ready", found.version), Some(&note), false, true, w, |ui| {
+            kit::row(ui, &p, &format!("coda {} is ready", found.version), Some(&note), false, true, w, |ui| {
                 if kit::button_enabled(ui, &p, "Update now", Kind::Primary, !busy).clicked() {
                     self.update_now(&ctx);
                 }
@@ -460,7 +460,7 @@ impl TruffleApp {
         }
 
         let mut auto = self.prefs.check_updates;
-        let note = "Looks once a day while Truffle is open, and asks before installing anything. Only Truffle's releases on GitHub are read: nothing about you or your music is sent";
+        let note = "Looks once a day while coda is open, and asks before installing anything. Only coda's releases on GitHub are read: nothing about you or your music is sent";
         if kit::switch_row(ui, &p, "Check for updates automatically", Some(note), &mut auto, false, true) {
             self.prefs.check_updates = auto;
             self.updater.next_try = None;

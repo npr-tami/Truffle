@@ -23,7 +23,7 @@
 //! When Last.fm refuses the API key or secret, sending stops ("stopped") until the user connects
 //! again or disconnects; plays are still queued for later meanwhile. The refusal is saved with the
 //! session, so it is announced once rather than at every start, and each start checks once
-//! whether Last.fm accepts Truffle again.
+//! whether Last.fm accepts Coda again.
 //!
 //! The shared secret and the session key are never logged.
 
@@ -46,7 +46,7 @@ use self::tracker::{Output, PendingScrobble, ScrobbleTrack, Tracker};
 use crate::config::{self, Paths, Settings};
 use crate::model::{LastfmStatus, PlayStatus, TrackInfo};
 
-/// `auth.getSession` is polled this often while the user approves Truffle in the browser.
+/// `auth.getSession` is polled this often while the user approves Coda in the browser.
 const POLL_INTERVAL: Duration = Duration::from_secs(3);
 /// Waiting for the approval stops after this long.
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -92,13 +92,13 @@ impl ConnectFailure {
         match self {
             ConnectFailure::Api(e) => problem_message(e),
             ConnectFailure::Browser => {
-                "Truffle couldn't open your web browser. Make sure Windows has a default browser set, then try again.".into()
+                "coda couldn't open your web browser. Make sure Windows has a default browser set, then try again.".into()
             }
             ConnectFailure::Expired => {
                 "The Last.fm approval expired before it was finished. Click Connect to try again.".into()
             }
             ConnectFailure::TimedOut => {
-                "Truffle stopped waiting for the Last.fm approval after 10 minutes. Click Connect to try again.".into()
+                "coda stopped waiting for the Last.fm approval after 10 minutes. Click Connect to try again.".into()
             }
         }
     }
@@ -262,7 +262,7 @@ pub struct Scrobbler {
     /// file, so a later start doesn't announce it again.
     halted: Option<u32>,
     /// Stopped since an earlier run: one send may still go out, to see whether Last.fm accepts
-    /// Truffle again (it only had a hiccup).
+    /// Coda again (it only had a hiccup).
     probe: bool,
     /// The send in flight is that check.
     probing: bool,
@@ -312,7 +312,7 @@ impl Scrobbler {
         }
         let queue_file = paths.lastfm_queue_file();
         let (mut queue, note) = ScrobbleQueue::load(&queue_file);
-        // Plays queued by an older Truffle don't name their account: the saved sign-in's.
+        // Plays queued by an older Coda don't name their account: the saved sign-in's.
         let adopted = session.as_ref().map_or(0, |s| queue.adopt_unknown(&s.username));
         Self {
             session_file,
@@ -359,7 +359,7 @@ impl Scrobbler {
                 self.queue.len()
             );
             if let Some(code) = self.halted {
-                log::info!("Last.fm refused Truffle's API account earlier (error {code}); checking once whether it still does");
+                log::info!("Last.fm refused coda's API account earlier (error {code}); checking once whether it still does");
             }
         }
         self.prune();
@@ -417,7 +417,7 @@ impl Scrobbler {
 
     /// Queue an eligible play for the connected account (and write the queue). Returns whether
     /// it was queued. While stopped, plays are still queued: they go out once Last.fm accepts
-    /// Truffle again.
+    /// Coda again.
     fn enqueue(&mut self, mut item: PendingScrobble) -> bool {
         let Some(user) = self.session.as_ref().filter(|_| self.scrobbling()).map(|s| s.username.clone()) else {
             log::debug!("not scrobbling \"{}\": scrobbling is paused or Last.fm isn't connected", item.track.track);
@@ -485,7 +485,7 @@ impl Scrobbler {
         }
         let Ok(runtime) = tokio::runtime::Handle::try_current() else { return };
         if self.halted.is_some() {
-            log::info!("checking whether Last.fm accepts Truffle's API account again");
+            log::info!("checking whether Last.fm accepts coda's API account again");
             self.probe = false;
             self.probing = true;
         }
@@ -501,7 +501,7 @@ impl Scrobbler {
 
     fn on_scrobbled(&mut self, generation: u64, batch: Vec<PendingScrobble>, result: Result<Vec<ItemResult>, LfmError>, now: Instant) {
         self.sending = None;
-        // The check whether Last.fm accepts Truffle again (see `probe`), for this connection.
+        // The check whether Last.fm accepts Coda again (see `probe`), for this connection.
         let probed = std::mem::take(&mut self.probing) && self.halted.is_some() && generation == self.generation;
         if probed {
             match &result {
@@ -550,7 +550,7 @@ impl Scrobbler {
                         self.note = None;
                     }
                     if probed {
-                        self.set_note("Last.fm accepts Truffle's API account again, so scrobbling has resumed.", false);
+                        self.set_note("Last.fm accepts coda's API account again, so scrobbling has resumed.", false);
                     }
                     self.next_batch_at = now.checked_add(BATCH_GAP);
                 }
@@ -569,7 +569,7 @@ impl Scrobbler {
                         let wait = self.backoff.fail(now, true);
                         log::info!("Last.fm rate limit; trying again in {} s", wait.as_secs());
                         self.set_note(
-                            "Last.fm asked Truffle to slow down. Scrobbles are saved and sent again in a few minutes.",
+                            "Last.fm asked coda to slow down. Scrobbles are saved and sent again in a few minutes.",
                             true,
                         );
                     }
@@ -643,7 +643,7 @@ impl Scrobbler {
         log::warn!("Last.fm no longer accepts the saved session; forgetting it");
         if self.session.is_some() {
             self.alert = Some(Alert::Problem(
-                "Last.fm scrobbling stopped: Last.fm no longer accepts Truffle's sign-in. Open Settings → Last.fm \
+                "Last.fm scrobbling stopped: Last.fm no longer accepts coda's sign-in. Open Settings → Last.fm \
                  to connect again. Unsent plays are kept."
                     .into(),
             ));
@@ -656,7 +656,7 @@ impl Scrobbler {
             log::warn!("could not delete the Last.fm sign-in: {e}");
         }
         self.set_note(
-            "Last.fm no longer accepts Truffle's sign-in, for example because access was removed in your Last.fm \
+            "Last.fm no longer accepts coda's sign-in, for example because access was removed in your Last.fm \
              settings. Click Connect to sign in again. Unsent scrobbles are kept.",
             false,
         );
@@ -668,7 +668,7 @@ impl Scrobbler {
     /// announce it again, and checks once whether Last.fm only had a hiccup.
     fn halt(&mut self, e: &LfmError) {
         let code = e.code().unwrap_or_default();
-        log::warn!("Last.fm refused Truffle's API account ({e}); not sending until it is connected again");
+        log::warn!("Last.fm refused coda's API account ({e}); not sending until it is connected again");
         if self.halted != Some(code) {
             self.alert = Some(Alert::Problem(format!(
                 "Last.fm scrobbling stopped: {}. Open Settings → Last.fm to connect again or disconnect. Unsent plays \
@@ -687,7 +687,7 @@ impl Scrobbler {
 
     /// Last.fm accepted a send again after refusing the API account (it only had a hiccup).
     fn resume(&mut self) {
-        log::info!("Last.fm accepts Truffle's API account again; scrobbling resumes");
+        log::info!("Last.fm accepts coda's API account again; scrobbling resumes");
         self.halted = None;
         if let Err(e) = self.save_session() {
             log::warn!("could not save the Last.fm sign-in: {e:#}");
@@ -744,7 +744,7 @@ impl Scrobbler {
         }
         let (Some(client), Ok(runtime)) = (self.client.clone(), tokio::runtime::Handle::try_current()) else {
             log::error!("connecting to Last.fm is impossible: no HTTP client or async runtime");
-            self.set_note("Truffle couldn't set up its connection to Last.fm. Restart Truffle and try again.", false);
+            self.set_note("coda couldn't set up its connection to Last.fm. Restart coda and try again.", false);
             self.publish();
             return;
         };
@@ -760,7 +760,7 @@ impl Scrobbler {
         self.connecting = Some(Connecting { attempt, task });
         log::info!("connecting to Last.fm");
         self.set_note(
-            "Your browser opens Last.fm. Allow Truffle to use your account there, then come back to Truffle.",
+            "Your browser opens Last.fm. Allow coda to use your account there, then come back to coda.",
             false,
         );
         self.publish();
@@ -799,7 +799,7 @@ impl Scrobbler {
             Ok(()) => "Disconnected from Last.fm.".to_owned(),
             Err(e) => {
                 log::warn!("could not delete the Last.fm sign-in: {e}");
-                "Disconnected from Last.fm, but Truffle couldn't delete the saved sign-in from this computer.".to_owned()
+                "Disconnected from Last.fm, but coda couldn't delete the saved sign-in from this computer.".to_owned()
             }
         };
         log::info!("disconnected from Last.fm");
@@ -956,8 +956,8 @@ impl Scrobbler {
             Err(e) => {
                 log::warn!("could not save the Last.fm sign-in: {e:#}");
                 let text = format!(
-                    "Connected to Last.fm as {name}, but Truffle couldn't save the sign-in, so you'll need to connect \
-                     again after restarting Truffle."
+                    "Connected to Last.fm as {name}, but coda couldn't save the sign-in, so you'll need to connect \
+                     again after restarting coda."
                 );
                 (text.clone(), Alert::Problem(text))
             }
@@ -1096,7 +1096,7 @@ fn problem_message(e: &LfmError) -> String {
             last.fm/api/account/create, then connect with its API key and shared secret."
             .into(),
         LfmError::Api { code: 4, .. } => {
-            "Last.fm refused Truffle's sign-in details. Check the API key and shared secret, then click Connect again.".into()
+            "Last.fm refused coda's sign-in details. Check the API key and shared secret, then click Connect again.".into()
         }
         LfmError::Api { code: 29, .. } => {
             "Last.fm is getting too many requests from this connection. Please wait a few minutes and try again.".into()
@@ -1121,14 +1121,14 @@ fn halt_reason(code: u32) -> &'static str {
         10 => "Last.fm didn't accept the API key",
         13 => "Last.fm didn't accept the shared secret",
         26 => "Last.fm has suspended the API key",
-        _ => "Last.fm refused Truffle's sign-in details",
+        _ => "Last.fm refused coda's sign-in details",
     }
 }
 
 /// What Settings says while stopped because Last.fm refused the API account with `code`.
 fn stopped_message(code: u32) -> String {
     format!(
-        "{} Songs you play meanwhile are kept and sent once Last.fm accepts Truffle again.",
+        "{} Songs you play meanwhile are kept and sent once Last.fm accepts coda again.",
         problem_message(&LfmError::Api { code, message: String::new() })
     )
 }
@@ -1178,7 +1178,7 @@ mod tests {
     const SECRET: &str = "fedcba9876543210fedcba9876543210";
 
     fn temp_paths(name: &str) -> Paths {
-        let root = std::env::temp_dir().join(format!("truffle-lastfm-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("coda-lastfm-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let paths = Paths { config: root.join("config"), cache: root.join("cache") };
         std::fs::create_dir_all(&paths.config).unwrap();

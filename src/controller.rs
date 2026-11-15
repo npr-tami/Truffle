@@ -308,12 +308,12 @@ impl Controller {
         );
         youtube.set_disk_cache_mb(lock(&settings).audio_cache_mb);
         let persist::LoadedState { state, notice } = persist::load_state(&paths);
-        // The listen-along links, with the channel older Truffles write to taken in (the one
+        // The listen-along links, with the channel older Codas write to taken in (the one
         // channel from before links becomes the first link).
         let persist::LoadedLinks { book: mut links, notice: links_notice, held: links_held } = persist::load_links(&paths);
         let legacy = lock(&settings).listen_channel.clone();
         if links.take_in(legacy.as_deref()) {
-            log::info!("listen along: took in the link older Truffles write to");
+            log::info!("listen along: took in the link older codas write to");
             if !links_held
                 && let Err(e) = persist::save_links(&paths, &links)
             {
@@ -619,14 +619,14 @@ impl Controller {
         }
     }
 
-    /// A test aid: `truffle-selftest.request` beside truffle.exe ("search", or "edit" for the
+    /// A test aid: `coda-selftest.request` beside coda.exe ("search", or "edit" for the
     /// throwaway-playlist test too; "users <name>" for the people a search finds) runs
-    /// `library::selftest` once Truffle is logged in; the report goes to `truffle-selftest.txt`
+    /// `library::selftest` once Coda is logged in; the report goes to `coda-selftest.txt`
     /// there. "open <page>" only opens a page (see `Event::OpenPage`); "likes" writes the like
     /// queue's state there.
     fn check_selftest(&mut self) {
         let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(std::path::Path::to_path_buf)) else { return };
-        let request = dir.join("truffle-selftest.request");
+        let request = dir.join("coda-selftest.request");
         if !request.exists() {
             return;
         }
@@ -646,7 +646,7 @@ impl Controller {
         // URI>": the UI shows that page and says so; nothing plays.
         if let Some(page) = open_page(&mode) {
             log::info!("self-test: {mode}");
-            self.ui.send(Event::OpenPage { page: page.to_owned(), report: dir.join("truffle-selftest.txt") });
+            self.ui.send(Event::OpenPage { page: page.to_owned(), report: dir.join("coda-selftest.txt") });
             return;
         }
         if mode == "likes" {
@@ -654,7 +654,7 @@ impl Controller {
             let user = self.profile.as_ref().map(|p| p.username.clone()).unwrap_or_default();
             let report = self.likes.report(&user);
             log::info!("self-test likes:\n{report}");
-            let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+            let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
             return;
         }
         if let Some(rest) = mode.strip_prefix("canvas").filter(|rest| rest.is_empty() || rest.starts_with(' ')) {
@@ -674,7 +674,7 @@ impl Controller {
             tokio::spawn(async move {
                 let report = crate::canvas::report(&session, &uris).await;
                 log::info!("self-test canvas:\n{report}");
-                let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+                let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
             });
             return;
         }
@@ -684,7 +684,7 @@ impl Controller {
             return;
         }
         // Playback test aids: "source youtube|spotify", "next", "seek <seconds>", "playpause",
-        // "status" (what plays, where, from which source; written to truffle-selftest.txt).
+        // "status" (what plays, where, from which source; written to coda-selftest.txt).
         let mut words = mode.split_whitespace();
         let control = match (words.next(), words.next()) {
             (Some("source"), Some("youtube")) => Some(Command::SetSoundSource(crate::config::SoundSource::YouTube)),
@@ -708,7 +708,7 @@ impl Controller {
                 self.sound_source()
             );
             log::info!("self-test status: {status}");
-            let _ = std::fs::write(dir.join("truffle-selftest.txt"), status);
+            let _ = std::fs::write(dir.join("coda-selftest.txt"), status);
             return;
         }
         if let Some(name) = mode.strip_prefix("users").filter(|rest| rest.is_empty() || rest.starts_with(' ')) {
@@ -718,7 +718,7 @@ impl Controller {
             tokio::spawn(async move {
                 let report = crate::library::selftest::users(library, &name).await;
                 log::info!("self-test:\n{report}");
-                let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+                let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
             });
             return;
         }
@@ -736,7 +736,7 @@ impl Controller {
                 let report = youtube_test(library, youtube, source, count.unwrap_or(20)).await;
                 log::info!("self-test:
 {report}");
-                let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+                let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
             });
             return;
         }
@@ -746,7 +746,7 @@ impl Controller {
             let report = if mode == "presence" { crate::library::selftest::presence(library).await } else if mode == "follow" { crate::library::selftest::follow_test(library).await } else if mode == "probe" { crate::library::selftest::probe(library).await } else { crate::library::selftest::run(library, writes, taken).await };
             log::info!("self-test:
 {report}");
-            let _ = std::fs::write(dir.join("truffle-selftest.txt"), report);
+            let _ = std::fs::write(dir.join("coda-selftest.txt"), report);
         });
     }
 

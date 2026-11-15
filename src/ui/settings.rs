@@ -1,4 +1,4 @@
-//! Settings: a page of the middle column (`MiddleTab::Settings`), so Truffle's sidebar and player
+//! Settings: a page of the middle column (`MiddleTab::Settings`), so Coda's sidebar and player
 //! bar stay with it; Back, Esc, Ctrl+, and its × go back to the page before. Laid out like Windows 11's Settings, in the Final
 //! design's colours: the sections down the left with their icons, a search box above them that finds
 //! any setting in any section, and the chosen section's cards on the right. Every change applies at
@@ -27,7 +27,7 @@ use super::motion;
 use super::svgicon;
 use super::theme::{bold, heavy, medium, regular, text_field};
 use super::util::{looks_like_client_id, looks_like_discord_id, open_in_browser};
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::{Command, EQ_BANDS_HZ};
 use crate::text::{contains_folded, fold};
 use crate::webapi::REDIRECT_URI;
@@ -200,9 +200,9 @@ impl Item {
             Item::MiniOnTop => "mini player on top",
             Item::StartMenu => "start menu shortcut",
             Item::Shortcuts => "keyboard shortcuts keys hotkeys",
-            Item::Version => "about version build date truffle record now spinning",
+            Item::Version => "about version build date coda record now spinning",
             Item::Updates => "updates update new version check now automatically later github download install",
-            Item::Plays => "your truffle plays played stats statistics songs different most played top",
+            Item::Plays => "your coda plays played stats statistics songs different most played top",
             Item::Account => "account premium free sound from spotify youtube",
             Item::Helpers => "youtube helpers yt-dlp node.js deno javascript found version",
             Item::Folder => "folder data cache log logs open",
@@ -245,7 +245,7 @@ const CARDS: &[Card] = &[
     Card { page: Page::Shortcuts, title: None, items: &[Item::Shortcuts] },
     Card { page: Page::About, title: None, items: &[Item::Version] },
     Card { page: Page::About, title: Some("Updates"), items: &[Item::Updates] },
-    Card { page: Page::About, title: Some("Your Truffle"), items: &[Item::Plays] },
+    Card { page: Page::About, title: Some("Your coda"), items: &[Item::Plays] },
     Card { page: Page::About, title: Some("This copy"), items: &[Item::Account, Item::Helpers, Item::Folder, Item::Details] },
     Card { page: Page::About, title: Some("Made with"), items: &[Item::Credits] },
 ];
@@ -370,7 +370,7 @@ pub(super) fn resize_edges(ctx: &egui::Context, salt: &str, corners_only: bool) 
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Opens Settings as the middle column's page, with nothing left revealed, half-confirmed or
     /// searched from the last time. Already open: nothing changes.
     pub(super) fn open_settings(&mut self) {
@@ -864,7 +864,7 @@ impl TruffleApp {
             return;
         }
 
-        note(ui, "Not needed: Truffle edits playlists and searches without it. It's only a backup.", p.text);
+        note(ui, "Not needed: coda edits playlists and searches without it. It's only a backup.", p.text);
         ui.add_space(6.0);
         step(ui, 1, p.accent_ink, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -903,7 +903,7 @@ impl TruffleApp {
                 let valid = looks_like_client_id(self.client_id_input.trim());
                 // Stays usable while a sign-in is pending: a new attempt replaces the old one.
                 let clicked = kit::button_enabled(ui, &p, "Connect", Kind::Primary, valid)
-                    .on_hover_text("Opens your browser to allow Truffle to edit your playlists")
+                    .on_hover_text("Opens your browser to allow coda to edit your playlists")
                     .clicked();
                 let entered = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 if valid && (clicked || entered) {
@@ -1114,10 +1114,10 @@ impl TruffleApp {
             ui.ctx().request_repaint_after(DISCORD_STATUS_REFRESH);
         }
         kit::card_body(ui, &p, |ui| {
-            // Truffle brings its own Discord application; one of the user's own only changes the
+            // Coda brings its own Discord application; one of the user's own only changes the
             // name shown, so its setup stays folded away.
-            let own = self.prefs.discord_app_id.as_deref().is_some_and(|id| id.trim() != crate::platform::TRUFFLE_DISCORD_APP_ID);
-            egui::CollapsingHeader::new(RichText::new("Show another name than \"Truffle\"").color(p.text_weak))
+            let own = self.prefs.discord_app_id.as_deref().is_some_and(|id| id.trim() != crate::platform::CODA_DISCORD_APP_ID);
+            egui::CollapsingHeader::new(RichText::new("Show another name than \"coda\"").color(p.text_weak))
                 .id_salt("discord_own_app")
                 .default_open(own)
                 .show(ui, |ui| self.discord_setup(ui));

@@ -298,7 +298,7 @@ impl Controller {
             }
             Err(e) => {
                 self.ui.send(Event::Error(user_error(
-                    "Truffle couldn't start audio playback. Check that speakers or headphones are connected, then press play again.",
+                    "coda couldn't start audio playback. Check that speakers or headphones are connected, then press play again.",
                     &e,
                 )));
                 false
@@ -845,7 +845,7 @@ impl Controller {
         self.failures = 0;
         self.stop_playback();
         self.ui.send(Event::Error(
-            "Several tracks in a row couldn't be played, so Truffle stopped playback. Check your internet connection, then press play to try again.".into(),
+            "Several tracks in a row couldn't be played, so coda stopped playback. Check your internet connection, then press play to try again.".into(),
         ));
         false
     }
@@ -1333,7 +1333,7 @@ mod tests {
     /// A controller with no session (no engine: every load ends paused, to be loaded again),
     /// playing a list of `n` songs from the first, unshuffled. It writes into a temp folder.
     fn playing_list(name: &str, n: usize) -> Controller {
-        let dir = std::env::temp_dir().join(format!("truffle-playback-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-playback-{name}-{}", std::process::id()));
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         let (events, _) = std::sync::mpsc::channel();
         let ui = UiLink { events, ctx: egui::Context::default() };

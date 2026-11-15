@@ -24,7 +24,7 @@ use crate::ui::svgicon;
 use crate::ui::theme::{Palette, bold, heavy, medium, regular};
 use crate::ui::util::{fmt_added, fmt_ms, fmt_thousands, fmt_total};
 use crate::ui::wide;
-use crate::ui::{MiddleTab, TRACK_FILTER_ID, TruffleApp};
+use crate::ui::{MiddleTab, TRACK_FILTER_ID, CodaApp};
 
 /// `.hero`: 22 above the sleeve, 18 below, 24 at the sides.
 const PAD_X: f32 = 24.0;
@@ -171,7 +171,7 @@ fn meta_line(ui: &Ui, owner: &str, rest: &str, ink: Ink, width: f32) -> Arc<egui
 type HeroNumbers = (Option<usize>, u64, LikesWaiting);
 
 /// The hover tip of the likes waiting.
-const WAITING_TIP: &str = "Spotify is slowing likes down. Truffle keeps sending them.";
+const WAITING_TIP: &str = "Spotify is slowing likes down. coda keeps sending them.";
 
 /// The details after the owner: "1,001 songs · 38 h 55 min", an artist's "10 popular songs",
 /// Liked Songs' "36,864 songs · 1,240 waiting" (no length when `tight`).
@@ -336,7 +336,7 @@ fn song_keys(ui: &Ui, v: &mut TrackView, rows: &[u32], count: usize) -> Option<u
     v.selected.filter(|&s| enter && s < count && rows.contains(&(s as u32)))
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// A list's page, filling `ui`.
     pub(super) fn list_page(&mut self, ui: &mut Ui) {
         let p = self.palette;
@@ -687,7 +687,7 @@ impl TruffleApp {
                 act = Some(HeroAct::NewRound);
             }
             x += 30.0 + 8.0;
-            // An artist: FOLLOW, or FOLLOWING with a check (once Truffle knows who is followed), when
+            // An artist: FOLLOW, or FOLLOWING with a check (once Coda knows who is followed), when
             // there is room for it and More after it; else it is in More.
             if let Source::Artist(uri) = source
                 && self.following.is_some()
@@ -1337,7 +1337,7 @@ impl TruffleApp {
         let resp = if t.playable {
             resp
         } else {
-            resp.on_hover_text(if t.is_local { "Local file: Truffle can't play files stored on your computer" } else { "Not available on Spotify in your country" })
+            resp.on_hover_text(if t.is_local { "Local file: coda can't play files stored on your computer" } else { "Not available on Spotify in your country" })
         };
         if resp.secondary_clicked() {
             let at = resp.interact_pointer_pos().unwrap_or(rect.center());
@@ -1406,7 +1406,7 @@ impl TruffleApp {
     }
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Under an artist's hero (`pgArtist`): Popular beside Releases when there is room (700 and
     /// up), else one above the other.
     fn artist_body(&mut self, ui: &mut Ui, left: f32, w: f32, mw: f32, source: &Source) {

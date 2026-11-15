@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -4 514 138" width="1542" height="414">
-  <!-- Truffle's chrome wordmark, in capitals (for light backgrounds: a darker edge, and a blue sparkle that stays visible on white): Unbounded Black with Glint's chrome, and the glint at its corner.
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -4 314 138" width="942" height="414">
+  <!-- Coda's chrome wordmark, in lowercase (for light backgrounds: a darker edge, and a blue sparkle that stays visible on white): Unbounded Black with Glint's chrome, and the glint at its corner.
        The startup screen shows assets/wordmark_light.png: this file rendered at its size (3x) by headless
        Edge or Chrome on a transparent background, with the font loaded, then trimmed to the drawing. -->
   <style>@import url("https://fonts.googleapis.com/css2?family=Unbounded:wght@900&amp;display=block");</style>
@@ -31,6 +31,6 @@
     <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".5"/></filter>
     <filter id="spark" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <g filter="url(#shadow)"><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="none" stroke="url(#rim)" stroke-width="12" stroke-linejoin="round">TRUFFLE</text><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="none" stroke="#3a4253" stroke-width="6" stroke-linejoin="round">TRUFFLE</text><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="url(#chrome)" filter="url(#bevel)">TRUFFLE</text></g>
-  <g><path d="M474,9 Q476.64,20.7 486,24 Q476.64,27.3 474,39 Q471.36,27.3 462,24 Q471.36,20.7 474,9Z" fill="#2e7cf6" stroke="#123" stroke-width="1.5"/></g>
+  <g filter="url(#shadow)"><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="none" stroke="url(#rim)" stroke-width="12" stroke-linejoin="round">coda</text><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="none" stroke="#3a4253" stroke-width="6" stroke-linejoin="round">coda</text><text x="12" y="92" font-family="Unbounded, 'Segoe UI Black', sans-serif" font-weight="900" font-size="80" letter-spacing="-1" fill="url(#chrome)" filter="url(#bevel)">coda</text></g>
+  <g transform="translate(-196.1,0)"><g><path d="M474,9 Q476.64,20.7 486,24 Q476.64,27.3 474,39 Q471.36,27.3 462,24 Q471.36,20.7 474,9Z" fill="#2e7cf6" stroke="#123" stroke-width="1.5"/></g></g>
 </svg>

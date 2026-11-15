@@ -15,7 +15,7 @@ use egui::{
 
 use crate::listen::links::{MAX_LINKS, NAME_MAX};
 use crate::model::{Command, LinkState, LinkView};
-use crate::ui::{AuthState, TruffleApp};
+use crate::ui::{AuthState, CodaApp};
 use crate::ui::fin::{self, Look};
 use crate::ui::friends::ROW_H;
 use crate::ui::theme::{Palette, bold, medium, regular};
@@ -80,7 +80,7 @@ struct RowLook {
     offset_ms: i64,
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Sharing on or off.
     pub(super) fn set_listen_share(&mut self, on: bool) {
         self.listen_share = on;

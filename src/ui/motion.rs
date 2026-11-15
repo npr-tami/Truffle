@@ -77,7 +77,7 @@ pub fn factor(speed: MotionSpeed) -> f32 {
 static SPEED: AtomicU32 = AtomicU32::new(1f32.to_bits());
 static MOVES: AtomicBool = AtomicBool::new(true);
 
-/// Applies the Motion setting, to Truffle's times and egui's own (menus and tips fading in).
+/// Applies the Motion setting, to Coda's times and egui's own (menus and tips fading in).
 pub fn set_speed(ctx: &Context, speed: MotionSpeed) {
     let k = factor(speed);
     SPEED.store(k.to_bits(), Ordering::Relaxed);
@@ -647,7 +647,7 @@ struct Leaving {
 struct AllLeaving(Vec<Leaving>);
 
 fn leaving_id() -> Id {
-    Id::new("truffle-motion-leaving")
+    Id::new("coda-motion-leaving")
 }
 
 /// Keeps what `layer` drew this pass, so that once a pass goes by without this call for `key`, it

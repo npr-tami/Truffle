@@ -15,7 +15,7 @@ use super::svgicon;
 use super::theme::{bold, heavy, medium, regular};
 use super::tracks::one_line;
 use super::util::{fmt_ms, fmt_thousands, fmt_total};
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::{Command, PlayStatus, RepeatMode};
 
 /// The bottom tabs and the mini player above them.
@@ -23,7 +23,7 @@ const TABS_H: f32 = 58.0;
 const MINI_H: f32 = 58.0;
 const PAD_X: f32 = 16.0;
 
-impl TruffleApp {
+impl CodaApp {
     /// Everything under the title bar at narrow widths, in `body` (down to the window's foot).
     pub(super) fn narrow_body(&mut self, ui: &mut Ui, body: Rect, l: &Layout) {
         let p = self.palette;

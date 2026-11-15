@@ -1,11 +1,11 @@
-//! The app icon (window, taskbar, tray, and the logo on the startup screen): a turntable with a
-//! chrome tonearm on a black record, in two styles: a silver deck (`assets/logo.svg`) and a black
-//! one framed in chrome (`assets/logo_black.svg`). Settings > Appearance picks one, or follows the
-//! taskbar ([`style_for`]).
+//! The app icon (window, taskbar, tray, and the logo on the startup screen): four rounded bars
+//! (teal, blue, violet, pink) on a dark rounded square (`assets/coda.svg`); the tray shows the
+//! bars alone (`assets/coda-tray.svg`). Coda has one look: both of the icon styles that
+//! Settings > Appearance offers ([`style_for`]) show it.
 //!
 //! The artwork is rendered by `examples/make_icon.rs` into `assets/` (run
 //! `cargo run --example make_icon` to regenerate). The exe's own icon is embedded by build.rs from
-//! assets/truffle.ico (the silver deck) as icon resource id 1. The PNGs below are compiled in
+//! assets/coda.ico as icon resource id 1. The PNGs below are compiled in
 //! here, so the window and tray can show either style, and never depend on that step (the
 //! resource is absent when rc.exe wasn't available at build time).
 
@@ -32,27 +32,19 @@ pub fn style_for(choice: AppIcon, taskbar_dark: bool) -> IconStyle {
 }
 
 /// 256x256 artwork: eframe scales it to the exact title-bar and taskbar sizes itself.
-static PNG_256: [&[u8]; 2] = [include_bytes!("../assets/truffle.png"), include_bytes!("../assets/truffle_black.png")];
+static PNG_256: [&[u8]; 2] = [include_bytes!("../assets/coda.png"), include_bytes!("../assets/coda.png")];
 
 /// The tray's sizes (the notification area's small icons at 100 to 200 % scaling), each rendered
 /// at its size: crisper than a scaled bitmap.
 const TRAY_SIZES: [u32; 5] = [16, 20, 24, 28, 32];
-static TRAY_PNGS: [[&[u8]; 5]; 2] = [
-    [
-        include_bytes!("../assets/tray/silver_16.png"),
-        include_bytes!("../assets/tray/silver_20.png"),
-        include_bytes!("../assets/tray/silver_24.png"),
-        include_bytes!("../assets/tray/silver_28.png"),
-        include_bytes!("../assets/tray/silver_32.png"),
-    ],
-    [
-        include_bytes!("../assets/tray/black_16.png"),
-        include_bytes!("../assets/tray/black_20.png"),
-        include_bytes!("../assets/tray/black_24.png"),
-        include_bytes!("../assets/tray/black_28.png"),
-        include_bytes!("../assets/tray/black_32.png"),
-    ],
+static TRAY: [&[u8]; 5] = [
+    include_bytes!("../assets/tray/coda_16.png"),
+    include_bytes!("../assets/tray/coda_20.png"),
+    include_bytes!("../assets/tray/coda_24.png"),
+    include_bytes!("../assets/tray/coda_28.png"),
+    include_bytes!("../assets/tray/coda_32.png"),
 ];
+static TRAY_PNGS: [[&[u8]; 5]; 2] = [TRAY, TRAY];
 
 /// The deck's silver, for the fallback icon.
 const SILVER: [u8; 3] = [0xC9, 0xD0, 0xDB];
@@ -132,10 +124,8 @@ mod tests {
             let centre = (128 * 256 + 128) * 4;
             assert_eq!(icon.rgba[centre + 3], 255);
         }
-        // The two styles differ: the silver deck is light where the black one is dark.
-        let (silver, black) = (window_icon(IconStyle::Silver), window_icon(IconStyle::Black));
-        let corner_of_deck = (210 * 256 + 40) * 4;
-        assert!(silver.rgba[corner_of_deck] > black.rgba[corner_of_deck] + 60);
+        // One look: both styles show the same icon.
+        assert_eq!(window_icon(IconStyle::Silver).rgba, window_icon(IconStyle::Black).rgba);
     }
 
     #[test]
@@ -146,9 +136,9 @@ mod tests {
                 assert_eq!((w, h), (got, got), "{style:?} at {want}");
                 assert_eq!(rgba.len(), (got * got * 4) as usize);
                 assert_eq!(rgba[3], 0, "corner is transparent");
-                // The deck fills most of the tile.
+                // The bars fill about a third of the tile.
                 let opaque = rgba.as_chunks::<4>().0.iter().filter(|p| p[3] == 255).count();
-                assert!(opaque > (got * got / 2) as usize, "{style:?} {got}: only {opaque} opaque pixels");
+                assert!(opaque > (got * got / 4) as usize, "{style:?} {got}: only {opaque} opaque pixels");
             }
         }
     }
@@ -165,7 +155,7 @@ mod tests {
 
     #[test]
     fn exe_icon_file_has_all_sizes() {
-        let ico = include_bytes!("../assets/truffle.ico");
+        let ico = include_bytes!("../assets/coda.ico");
         assert_eq!(&ico[..4], &[0, 0, 1, 0], "ICO header");
         let count = u16::from_le_bytes([ico[4], ico[5]]) as usize;
         let sizes: Vec<u32> = (0..count)

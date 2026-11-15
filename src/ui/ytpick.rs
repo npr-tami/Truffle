@@ -3,7 +3,7 @@
 
 use egui::{Align2, Color32, CornerRadius, CursorIcon, Id, Rect, Sense, Ui, pos2, vec2};
 
-use super::TruffleApp;
+use super::CodaApp;
 use super::fin;
 use super::svgicon;
 use super::theme::{medium, regular};
@@ -22,7 +22,7 @@ pub(super) struct YtPick {
 
 const ROW_H: f32 = 44.0;
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn open_yt_pick(&mut self, track: &TrackInfo) {
         self.send(Command::YouTubeMatches(Box::new(track.clone())));
         self.yt_pick = Some(YtPick { track: track.clone(), current: None, result: None });
@@ -43,7 +43,7 @@ impl TruffleApp {
         let modal = fin::dialog(ctx, Id::new("yt_pick"), |ui| {
             ui.set_width(480.0);
             let who = format!("{} - {}", pick.track.artist_line(), pick.track.name);
-            fin::dialog_head(ui, "Pick the right video", Some(&format!("For \"{who}\" ({}). Truffle remembers your pick.", fmt_ms(pick.track.duration_ms))));
+            fin::dialog_head(ui, "Pick the right video", Some(&format!("For \"{who}\" ({}). coda remembers your pick.", fmt_ms(pick.track.duration_ms))));
             ui.add_space(10.0);
             match &pick.result {
                 None => {

@@ -11,13 +11,13 @@ use super::{Internal, PlatformAction, forward};
 use crate::icon::IconStyle;
 use crate::model::Command;
 
-const ID_NOW_PLAYING: &str = "truffle.now_playing";
-const ID_PLAY_PAUSE: &str = "truffle.play_pause";
-const ID_NEXT: &str = "truffle.next";
-const ID_PREVIOUS: &str = "truffle.previous";
-const ID_SHOW: &str = "truffle.show";
-const ID_MINI: &str = "truffle.mini_player";
-const ID_QUIT: &str = "truffle.quit";
+const ID_NOW_PLAYING: &str = "coda.now_playing";
+const ID_PLAY_PAUSE: &str = "coda.play_pause";
+const ID_NEXT: &str = "coda.next";
+const ID_PREVIOUS: &str = "coda.previous";
+const ID_SHOW: &str = "coda.show";
+const ID_MINI: &str = "coda.mini_player";
+const ID_QUIT: &str = "coda.quit";
 
 /// What a tray menu item does.
 pub fn menu_action(id: &str) -> Option<PlatformAction> {
@@ -96,7 +96,7 @@ impl Tray {
         let play_pause = MenuItem::with_id(ID_PLAY_PAUSE, "Play", true, None);
         let next = MenuItem::with_id(ID_NEXT, "Next", true, None);
         let previous = MenuItem::with_id(ID_PREVIOUS, "Previous", true, None);
-        let show = MenuItem::with_id(ID_SHOW, "Show Truffle", true, None);
+        let show = MenuItem::with_id(ID_SHOW, "Show coda", true, None);
         let mini = MenuItem::with_id(ID_MINI, "Mini player", true, None);
         let quit = MenuItem::with_id(ID_QUIT, "Quit", true, None);
         let menu = Menu::new();
@@ -116,7 +116,7 @@ impl Tray {
         let image = tray_image(style)?;
         let tooltip = tray_tooltip(None);
         let icon = TrayIconBuilder::new()
-            .with_id("truffle")
+            .with_id("coda")
             .with_icon(image)
             .with_tooltip(&tooltip)
             .with_menu(Box::new(menu))

@@ -58,14 +58,14 @@ fn recover(backup: &Path, kept: Option<&Path>) -> LoadedState {
             log::warn!("using the play history backup {}", backup.display());
             (
                 *state,
-                "Truffle's saved play history couldn't be read, so the copy from the last start was used. \
+                "coda's saved play history couldn't be read, so the copy from the last start was used. \
                  Plays and blocked songs from the last session may be missing."
                     .to_owned(),
             )
         }
         _ => (
             PersistedState::default(),
-            "Truffle's saved play history couldn't be read and there was no usable backup, so play counts \
+            "coda's saved play history couldn't be read and there was no usable backup, so play counts \
              and blocked songs start over."
                 .to_owned(),
         ),
@@ -161,7 +161,7 @@ pub(super) fn save_liked(paths: &Paths, username: &str, liked: &HashSet<String>)
 /// What to tell the user about `listen_links.json` (each only when it happens).
 pub(super) const LINKS_FROM_BACKUP: &str = "Your listen-along links came from a backup copy.";
 pub(super) const LINKS_LOST: &str = "Couldn't read your listen-along links.";
-pub(super) const LINKS_LOCKED: &str = "Couldn't open your listen-along links. Restart Truffle to try again.";
+pub(super) const LINKS_LOCKED: &str = "Couldn't open your listen-along links. Restart coda to try again.";
 
 /// `listen_links.json` as read.
 #[derive(Debug, Default, PartialEq)]
@@ -284,7 +284,7 @@ mod tests {
     use super::*;
 
     fn temp_paths(name: &str) -> Paths {
-        let dir = std::env::temp_dir().join(format!("truffle-persist-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-persist-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { config: dir.join("config"), cache: dir.join("cache") };
         std::fs::create_dir_all(&paths.config).unwrap();

@@ -16,7 +16,7 @@ use super::window::{
     FULL_MIN_SIZE, MINI_SIZE, STAGE_MIN_SIZE, STAGE_SIZE, full_size_or_default, moved, plausible_position, point_on_a_monitor,
     stage_size_or_default,
 };
-use super::{AuthState, TruffleApp, theme};
+use super::{AuthState, CodaApp, theme};
 use crate::config::{AppIcon, ThemeMode};
 use crate::icon::{self, IconStyle};
 use crate::platform::{self, Platform, PlatformAction};
@@ -74,7 +74,7 @@ pub struct Shell {
     /// Ask for focus once more on the next frame (showing a window and focusing it in the same
     /// frame is not always honoured).
     focus_again: bool,
-    /// Explain once per session, when the window comes back, that closing kept Truffle running.
+    /// Explain once per session, when the window comes back, that closing kept Coda running.
     background_hint: BackgroundHint,
     /// "Same as Windows": when Windows' mode was last read, the theme winit last reported and
     /// whether the window had the focus (a change in either is a reason to read it again at once).
@@ -93,7 +93,7 @@ pub struct Shell {
     pub shortcut_busy: bool,
     /// The main window's handle, once found (for its placement).
     hwnd: Option<isize>,
-    /// It was maximized when Truffle last closed: maximized again once it is first shown.
+    /// It was maximized when Coda last closed: maximized again once it is first shown.
     pub maximize_when_shown: bool,
 }
 
@@ -142,7 +142,7 @@ fn root_cmd(ctx: &egui::Context, cmd: ViewportCommand) {
     ctx.send_viewport_cmd_to(egui::ViewportId::ROOT, cmd);
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Creates the platform integration for the main window.
     pub(super) fn create_platform(ctx: &egui::Context, settings: &crate::config::Settings, runtime: tokio::runtime::Handle) -> Platform {
         let hwnd = super::window::main_window_handle();
@@ -252,7 +252,7 @@ impl TruffleApp {
     }
 
     /// Closing hides the window ("Keep running in the background"): only when asked for and there
-    /// is a way back to it, the tray icon or opening Truffle again (`main.rs` then shows this one).
+    /// is a way back to it, the tray icon or opening Coda again (`main.rs` then shows this one).
     pub(super) fn keeps_running(&self) -> bool {
         self.prefs.keep_running && (self.tray_shown() || crate::relaunch_shows_window())
     }
@@ -267,7 +267,7 @@ impl TruffleApp {
             return;
         }
         if self.shell.quitting || !self.keeps_running() {
-            log::info!("closing Truffle");
+            log::info!("closing coda");
             self.remember_mini_position(ctx);
             return;
         }
@@ -303,7 +303,7 @@ impl TruffleApp {
         if self.shell.background_hint == BackgroundHint::Pending {
             self.shell.background_hint = BackgroundHint::Shown;
             let quit = if self.tray_shown() { " (Quit is in the tray icon's menu)" } else { "" };
-            self.toast(format!("Truffle kept running in the background{quit}"), false);
+            self.toast(format!("coda kept running in the background{quit}"), false);
         }
         ctx.request_repaint();
     }
@@ -386,7 +386,7 @@ impl TruffleApp {
         let size = full.map_or_else(|| full_size_or_default(self.prefs.main_window_size), |f| full_size_or_default(Some(f.size)));
 
         root_cmd(ctx, ViewportCommand::WindowLevel(WindowLevel::Normal));
-        // Truffle draws its own title bar; the full window has no Windows frame either.
+        // Coda draws its own title bar; the full window has no Windows frame either.
         root_cmd(ctx, ViewportCommand::Decorations(false));
         root_cmd(ctx, ViewportCommand::Resizable(true));
         root_cmd(ctx, ViewportCommand::MinInnerSize(FULL_MIN_SIZE / zoom));
@@ -603,7 +603,7 @@ impl TruffleApp {
         let visible = ctx.input(|i| i.viewport().minimized != Some(true));
         if std::mem::take(&mut self.shell.maximize_when_shown) {
             if visible {
-                log::info!("maximized again, as when Truffle closed");
+                log::info!("maximized again, as when coda closed");
                 root_cmd(ctx, ViewportCommand::Maximized(true));
                 self.shell.settle = SETTLE_FRAMES;
                 return;
@@ -683,15 +683,15 @@ impl TruffleApp {
                             self.prefs.start_with_windows = enabled;
                             self.prefs_changed();
                             let text = if enabled {
-                                "Truffle will start when you sign in to Windows."
+                                "coda will start when you sign in to Windows."
                             } else {
-                                "Truffle won't start with Windows any more."
+                                "coda won't start with Windows any more."
                             };
                             self.toast(text, false);
                         }
                         Err(e) => {
                             log::warn!("could not change start with Windows: {e}");
-                            self.toast(format!("Couldn't change whether Truffle starts with Windows: {e}"), true);
+                            self.toast(format!("Couldn't change whether coda starts with Windows: {e}"), true);
                         }
                     }
                 }
@@ -700,11 +700,11 @@ impl TruffleApp {
                     match result {
                         Ok(path) => {
                             log::info!("start menu shortcut at {}", path.display());
-                            self.toast("Truffle is now in the Start menu.", false);
+                            self.toast("coda is now in the Start menu.", false);
                         }
                         Err(e) => {
                             log::warn!("could not create the start menu shortcut: {e}");
-                            self.toast(format!("Couldn't add Truffle to the Start menu: {e}"), true);
+                            self.toast(format!("Couldn't add coda to the Start menu: {e}"), true);
                         }
                     }
                 }

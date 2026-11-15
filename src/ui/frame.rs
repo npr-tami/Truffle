@@ -1,6 +1,6 @@
 //! The design's frame ("sign", "body", "pb" and "st"): the chrome
 //! title bar, the sidebar that folds 300 → 56 strip → hidden, the side panel (340 wide, 280 at medium
-//! widths), the player bar, and the window's own edges (Truffle draws its own title bar).
+//! widths), the player bar, and the window's own edges (Coda draws its own title bar).
 //!
 //! Two widths fold everything: 1200 and 760. From 1200 the sidebar is 300 (Ctrl+B folds it to the strip) and
 //! the side panel 340. From 760 to 1199 the sidebar is the 56 strip (Ctrl+B opens the 300 over the page) and
@@ -14,7 +14,7 @@ use egui::{
 use super::fin::{self, Look};
 use super::motion;
 use super::svgicon;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::Source;
 
 /// From this width up: the 300 sidebar and the 340 side panel.
@@ -115,7 +115,7 @@ pub struct FrameState {
     page_seen: Option<super::nav::Place>,
     /// Middle-click scrolling, as in a browser: where it started; and the page's area.
     autoscroll: Option<AutoScroll>,
-    /// The middle button, which Truffle takes on the page before egui sees it (held and moved,
+    /// The middle button, which Coda takes on the page before egui sees it (held and moved,
     /// egui would take it for a drag of what is under the pointer, and no list would scroll):
     /// down now, and pressed (where) or let go this pass.
     middle_down: bool,
@@ -140,13 +140,13 @@ struct ShotRestore {
     settings: bool,
 }
 
-/// A test aid: while a file named `truffle-shot.request` sits beside truffle.exe, Truffle saves what it
-/// draws as `truffle-shot.png` there (once per request) and logs its state. A request may name a size:
+/// A test aid: while a file named `coda-shot.request` sits beside coda.exe, Coda saves what it
+/// draws as `coda-shot.png` there (once per request) and logs its state. A request may name a size:
 /// the window takes it for the picture and goes back to its own size after (it would otherwise stay
 /// resized on the user's screen).
 fn shot_paths() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
     let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    Some((dir.join("truffle-shot.request"), dir.join("truffle-shot.png")))
+    Some((dir.join("coda-shot.request"), dir.join("coda-shot.png")))
 }
 
 impl FrameState {
@@ -236,10 +236,11 @@ impl FrameState {
     }
 }
 
-/// The title bar's wordmark: TRUFFLE in Unbounded 800, 19 px, letter-spaced, liquid chrome
-/// (`.sign .wm`), drawn at 4x (assets/wordmark_bar.png) and shown at its CSS size.
+/// The title bar's wordmark: coda in Unbounded 800, 19 px, letter-spaced, liquid chrome
+/// (`.sign .wm`), drawn at 4x (assets/wordmark_bar.png from assets/wordmark_bar.html, trimmed)
+/// and shown at its CSS size.
 static WORDMARK_BAR: &[u8] = include_bytes!("../../assets/wordmark_bar.png");
-const WORDMARK_SIZE: egui::Vec2 = egui::vec2(130.0, 22.0);
+const WORDMARK_SIZE: egui::Vec2 = egui::vec2(70.0, 16.25);
 
 
 /// A title bar's empty part drags the window (double-click maximises it), and its right end has the
@@ -301,8 +302,8 @@ pub(super) fn region<R>(ui: &mut Ui, rect: Rect, id: &str, fill: Option<Color32>
     add(&mut child)
 }
 
-impl TruffleApp {
-    /// Memory checks: a "memory" self-shot request gets a report in truffle-shot.txt (and the log), and
+impl CodaApp {
+    /// Memory checks: a "memory" self-shot request gets a report in coda-shot.txt (and the log), and
     /// the working set growing 256 MB past the last report gets one in the log, to catch what grows.
     pub(super) fn memory_probe(&mut self, ctx: &egui::Context) {
         if let Some((request, _)) = shot_paths()
@@ -310,7 +311,7 @@ impl TruffleApp {
         {
             let report = self.memory_report(ctx);
             log::info!("{report}");
-            let _ = std::fs::write(request.with_file_name("truffle-shot.txt"), &report);
+            let _ = std::fs::write(request.with_file_name("coda-shot.txt"), &report);
             let _ = std::fs::remove_file(&request);
         }
         if self.frame.passes.is_multiple_of(120)

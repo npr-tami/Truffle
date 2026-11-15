@@ -1,5 +1,5 @@
 //! Likes and unlikes on their way to Spotify. Each one goes into a queue kept per account in
-//! `like_queue.json` (a file of its own, which an older Truffle leaves alone), where the latest
+//! `like_queue.json` (a file of its own, which an older Coda leaves alone), where the latest
 //! change of a song takes the place of one still waiting. The file is written (atomically) before
 //! a change is sent and again once Spotify has it, so a crash, a restart, a logout or going
 //! offline loses none.
@@ -523,7 +523,7 @@ mod tests {
     use super::*;
 
     fn temp_file(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("truffle-likes-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("coda-likes-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("like_queue.json")
@@ -689,7 +689,7 @@ mod tests {
         let queue = LikeQueue::load(&path);
         let all = songs(1_000);
         queue.push("alex", &all, true);
-        // Spotify takes three writes; Truffle is closed while the fourth is on its way.
+        // Spotify takes three writes; Coda is closed while the fourth is on its way.
         let (calls, took): (Arc<AtomicUsize>, Writes) = Default::default();
         let (counted, kept) = (calls.clone(), took.clone());
         let send = move |uris: Vec<String>, liked: bool| {

@@ -24,7 +24,7 @@ use super::panel::{Lyrics, line_at};
 use super::theme::{segoe, segoe_black, segoe_bold};
 use super::tracks::one_line;
 use super::util::fmt_ms;
-use super::{TruffleApp, fin, motion, svgicon};
+use super::{CodaApp, fin, motion, svgicon};
 use crate::model::{Command, LyricLine, PlayStatus, RepeatMode};
 use crate::video::{Frame, VideoLoop};
 
@@ -67,7 +67,7 @@ const LYRIC_GAP: f32 = 13.0;
 /// Lyrics without times start this far down (of the view's height), clear of the title bar.
 const UNTIMED_TOP: f32 = 0.12;
 
-/// The view's state, kept while Truffle runs.
+/// The view's state, kept while Coda runs.
 pub(super) struct Stage {
     pub open: bool,
     /// The first pass since it opened: everything starts where it belongs, without moving there.
@@ -664,7 +664,7 @@ fn card_button(ui: &Ui, rect: Rect, id: Id, icon: &str, icon_px: f32, color: Col
 }
 
 /// A card line (`.bar`: 3.2 tall, white at 14 % with the part done in `fill`), taking clicks and drags
-/// 8 above and below it; a knob shows while it is hovered or held, as on Truffle's other lines. Returns
+/// 8 above and below it; a knob shows while it is hovered or held, as on Coda's other lines. Returns
 /// its response and, while held, where (0-1).
 fn card_line(ui: &Ui, bar: Rect, id: Id, value: f32, enabled: bool, fill: Color32, k: f32) -> (Response, Option<f32>) {
     let resp = ui.interact(bar.expand2(vec2(0.0, 8.0 * k)), id, if enabled { Sense::click_and_drag() } else { Sense::hover() });
@@ -687,7 +687,7 @@ fn card_line(ui: &Ui, bar: Rect, id: Id, value: f32, enabled: bool, fill: Color3
     (resp, at)
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Ctrl+I and the player bar's button.
     pub(super) fn toggle_stage(&mut self, ctx: &egui::Context) {
         if self.stage.open {
@@ -746,7 +746,7 @@ impl TruffleApp {
     /// song ("Low Tide" by Mara Quell, its words, and its cover from the image cache), paused on its
     /// third line with nothing drifting, to set beside the design.
     pub(super) fn stage_demo(&mut self, ui: &mut Ui) {
-        const URI: &str = "spotify:track:truffle-stage-demo";
+        const URI: &str = "spotify:track:coda-stage-demo";
         const WORDS: [&str; 8] = [
             "Salt on the window, the radio low",
             "Tracing the coastline wherever we go",
@@ -765,7 +765,7 @@ impl TruffleApp {
                 album: "Low Tide".to_owned(),
                 album_uri: String::new(),
                 cover_small: None,
-                cover_large: Some("https://i.scdn.co/image/truffle-stage-demo".to_owned()),
+                cover_large: Some("https://i.scdn.co/image/coda-stage-demo".to_owned()),
                 duration_ms: 231_000,
                 playable: true,
                 is_local: false,
@@ -795,7 +795,7 @@ impl TruffleApp {
         self.stage.opened_at = ctx.input(|i| i.time);
         self.stage.fresh = true;
         self.stage.lyrics_off = self.shot_flag("stage-off");
-        // `stage-canvas`: with `demo-canvas.mp4` beside truffle.exe as its Canvas.
+        // `stage-canvas`: with `demo-canvas.mp4` beside coda.exe as its Canvas.
         let canvas = std::env::current_exe().ok().and_then(|exe| Some(exe.parent()?.join("demo-canvas.mp4"))).filter(|_| self.shot_flag("stage-canvas"));
         self.stage.canvases.insert(URI.to_owned(), Some(canvas.map_or(CanvasFile::None, CanvasFile::Video)));
         let full = ui.max_rect();
@@ -811,7 +811,7 @@ impl TruffleApp {
         let track = self.playback.track.clone();
         let cover_url = track.as_ref().and_then(|t| t.cover_large.clone().or_else(|| t.cover_small.clone()));
         let cover = cover_url.as_deref().and_then(|u| self.images.get(u, full.width().max(full.height())));
-        // The song's colour: its cover's, made a readable colour on the dark (as Truffle's accent is),
+        // The song's colour: its cover's, made a readable colour on the dark (as Coda's accent is),
         // kept while a new cover is still coming; at once as the view opens.
         let target = match cover_url.as_deref().map(|u| self.images.swatch(u)) {
             Some(Swatch::Color(c)) => super::accent::adapt_accent(c, &[BG]),

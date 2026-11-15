@@ -1,6 +1,6 @@
-# Builds truffle.exe for a release, without this PC's folder names inside it.
+# Builds coda.exe for a release, without this PC's folder names inside it.
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-release.ps1 [-TargetDir <folder>]
-# The exe ends up in <TargetDir>\release\truffle.exe (default: target\dist\release).
+# The exe ends up in <TargetDir>\release\coda.exe (default: target\dist\release).
 param([string]$TargetDir = (Join-Path (Split-Path $PSScriptRoot) 'target\dist'))
 
 $ErrorActionPreference = 'Stop'
@@ -14,7 +14,7 @@ $env:RUSTFLAGS = @(
     "--remap-path-prefix=$cargoHome=cargo"
     "--remap-path-prefix=$rustupHome=rustup"
     "--remap-path-prefix=$TargetDir=target"
-    "--remap-path-prefix=$repo=truffle"
+    "--remap-path-prefix=$repo=coda"
 ) -join ' '
 
 Push-Location $repo
@@ -25,10 +25,10 @@ try {
     Pop-Location
 }
 
-$exe = Join-Path $TargetDir 'release\truffle.exe'
+$exe = Join-Path $TargetDir 'release\coda.exe'
 $bytes = [IO.File]::ReadAllBytes($exe)
 $text = [Text.Encoding]::ASCII.GetString($bytes)
 foreach ($path in @($env:USERPROFILE, $env:USERNAME)) {
-    if ($path -and $text.Contains($path)) { throw "truffle.exe still contains '$path'" }
+    if ($path -and $text.Contains($path)) { throw "coda.exe still contains '$path'" }
 }
 Write-Host "Built $exe ($([math]::Round($bytes.Length / 1MB, 1)) MB)"

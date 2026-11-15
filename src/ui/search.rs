@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::model::{Card, Command, SearchResults, Source, TrackInfo};
 
 pub(super) const SEARCH_BOX_ID: &str = "spotify_search";
@@ -83,7 +83,7 @@ pub(super) struct Users {
     pub error: Option<String>,
 }
 
-impl TruffleApp {
+impl CodaApp {
 
     pub(super) fn start_search(&mut self) {
         let query = self.search.input.trim().to_owned();

@@ -1,4 +1,4 @@
-//! Web API JSON shapes (only the fields Truffle reads) and their mapping to `model` types.
+//! Web API JSON shapes (only the fields Coda reads) and their mapping to `model` types.
 //! Every nested field is optional: Spotify omits or nulls many of them in Development Mode.
 
 use serde::{Deserialize, Deserializer};

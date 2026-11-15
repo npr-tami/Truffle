@@ -4,8 +4,8 @@
 //!
 //! Two ways to follow someone:
 //! - Spotify's friend activity, for a host on Spotify's own app: the song and when it started.
-//! - A Truffle host's channel: a playlist of theirs with no songs whose description carries the
-//!   state, `Listen along with me on Truffle. [tl1;<track uri>;<position ms>;<sent at>;<mode>]`,
+//! - A Coda host's channel: a playlist of theirs with no songs whose description carries the
+//!   state, `Listen along with me on Coda. [tl1;<track uri>;<position ms>;<sent at>;<mode>]`,
 //!   rewritten on every song change, pause, resume, seek and stop. Every friend has a channel of
 //!   their own (a link, see `links`), so one can be kicked without the others noticing.
 
@@ -13,7 +13,9 @@ pub mod links;
 
 use serde_json::Value;
 
-/// The channel playlist's name.
+/// The channel playlist's name. Kept from the app's old name on purpose: it is stored in Spotify,
+/// and copies of the app from before the rename (also the user's own, on another PC) hide their
+/// channels by this name until the first state is written.
 pub const CHANNEL_NAME: &str = "Truffle · listen along";
 /// A listener reads a channel this often, and friend activity this often.
 pub const CHANNEL_POLL_MS: u64 = 3_000;
@@ -40,7 +42,7 @@ const LIVE_WITHOUT_LENGTH_MS: i64 = 10 * 60_000;
 const MAX_AHEAD_MS: i64 = 10 * 60_000;
 
 const TAG: &str = "[tl1;";
-const LEAD: &str = "Listen along with me on Truffle.";
+const LEAD: &str = "Listen along with me on coda.";
 const OFF_LEAD: &str = "Not sharing right now.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -496,7 +498,7 @@ mod tests {
         for mode in [Mode::Play, Mode::Pause] {
             let s = state(83_250, 1_761_400_000_123, mode);
             let text = describe(&s);
-            assert!(text.starts_with("Listen along with me on Truffle. [tl1;"), "{text}");
+            assert!(text.starts_with("Listen along with me on coda. [tl1;"), "{text}");
             assert_eq!(parse(&text), Some(s));
         }
         let off = off_description(42);
@@ -796,7 +798,7 @@ mod tests {
     #[test]
     fn sharing_with_nothing_playing_doesnt_say_not_sharing() {
         let text = describe(&HostState::stopped(42));
-        assert!(text.starts_with("Listen along with me on Truffle. "), "{text}");
+        assert!(text.starts_with("Listen along with me on coda. "), "{text}");
         assert_eq!(parse(&text), Some(HostState::stopped(42)));
     }
 

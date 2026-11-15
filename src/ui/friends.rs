@@ -15,7 +15,7 @@ use super::panel::Tab;
 use super::svgicon;
 use super::theme::{bold, medium, regular};
 use super::tracks::one_line;
-use super::{MiddleTab, TruffleApp};
+use super::{MiddleTab, CodaApp};
 use crate::config::FriendsLayout;
 use crate::model::{Command, Friend, ListenHow};
 
@@ -113,7 +113,7 @@ fn listen_button(ui: &Ui, p: &super::theme::Palette, right: f32, cy: f32, id: Id
     resp.on_hover_text(if on { "Stop listening along" } else { "Hear what they play, as they play it" })
 }
 
-impl TruffleApp {
+impl CodaApp {
     /// Listening along with someone: the play controls are theirs.
     pub(super) fn listening(&self) -> bool {
         self.listening.is_some()
@@ -133,7 +133,7 @@ impl TruffleApp {
     }
 
     /// The Friends tab in the layout picked (see [`parts`]): people from Spotify's friend activity
-    /// and the Truffle friends joined with a link, playing ones first; your links and sharing;
+    /// and the Coda friends joined with a link, playing ones first; your links and sharing;
     /// "Join with a link" at the foot.
     pub(super) fn panel_friends(&mut self, ui: &mut Ui, body: Rect) {
         if self.friends_asked.is_none_or(|at| at.elapsed() >= FRIENDS_EVERY) {
@@ -311,7 +311,7 @@ impl TruffleApp {
         if list.is_empty() {
             let y = y + 16.0;
             ui.painter().text(pos2(left + 8.0, y), Align2::LEFT_TOP, "Nobody to listen along with yet", medium(12.5), p.text);
-            let note = "People you follow show up here while they play music on Spotify. A friend on Truffle can send you their link.";
+            let note = "People you follow show up here while they play music on Spotify. A friend on coda can send you their link.";
             let g = ui.painter().layout(note.to_owned(), regular(11.5), p.text_weak, width - 16.0);
             let gh = g.size().y;
             ui.painter().galley(pos2(left + 8.0, y + 22.0), g, p.text_weak);
@@ -396,7 +396,7 @@ impl TruffleApp {
         ui.painter().galley(pos2(x + eq_w, sy), sub, p.text_weak);
         let tip = match &f.how {
             ListenHow::Friend(_) => "From Spotify's friend activity",
-            ListenHow::Channel(_) => "On Truffle, joined with their link",
+            ListenHow::Channel(_) => "On coda, joined with their link",
         };
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand).on_hover_text(tip);
         if resp.clicked()
@@ -430,7 +430,7 @@ impl TruffleApp {
         action
     }
 
-    /// "Join with a link" (`.srch`-like box and JOIN): a link a friend on Truffle sent.
+    /// "Join with a link" (`.srch`-like box and JOIN): a link a friend on Coda sent.
     fn join_box(&mut self, ui: &mut Ui, rect: Rect) {
         let p = self.palette;
         ui.painter().hline(rect.x_range(), rect.top() + 0.5, Stroke::new(1.0, p.field_border));

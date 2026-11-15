@@ -6,13 +6,13 @@ use egui::{Align2, CornerRadius, Frame, Id, PointerButton, Rect, Sense, Stroke, 
 use super::fin::{self, Look};
 use super::theme::{bold, regular};
 use super::tracks::one_line;
-use super::TruffleApp;
+use super::CodaApp;
 use crate::model::{Command, PlayStatus};
 
 /// The record's size on the mini player's turntable.
 const DECK: f32 = 62.0;
 
-impl TruffleApp {
+impl CodaApp {
     pub(super) fn mini_player(&mut self, ui: &mut Ui) {
         let p = self.palette;
         egui::CentralPanel::default().frame(Frame::new().fill(p.raised_bg)).show(ui, |ui| self.mini_contents(ui));

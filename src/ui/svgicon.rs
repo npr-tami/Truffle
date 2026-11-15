@@ -41,7 +41,7 @@ pub fn paint(painter: &Painter, rect: Rect, name: &str, color: Color32, stroke: 
 }
 
 fn texture(ctx: &Context, key: Key, vb: f32, kind: Paint, body: &str) -> Option<TextureHandle> {
-    let cache = ctx.data_mut(|d| d.get_temp_mut_or_default::<Cache>(Id::new("truffle-svg-icons")).clone());
+    let cache = ctx.data_mut(|d| d.get_temp_mut_or_default::<Cache>(Id::new("coda-svg-icons")).clone());
     let mut map = cache.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(t) = map.get(&key) {
         return t.clone();

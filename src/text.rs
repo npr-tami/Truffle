@@ -1,5 +1,5 @@
 //! Text compared the way people read it: folded for filters (case and accents aside), and songs
-//! matched by name and artists, the same way wherever Truffle looks for a song it has already
+//! matched by name and artists, the same way wherever Coda looks for a song it has already
 //! ("Find duplicates", and adding songs to a playlist).
 
 mod fold;
