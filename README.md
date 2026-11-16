@@ -3,7 +3,7 @@
 Coda is a small, fast Spotify player for Windows, written in Rust. It is a single native
 window (egui with OpenGL). It does not embed a browser.
 
-**[Download coda.exe](https://github.com/npr-tami/Truffle/releases/latest)** · [What's new](CHANGELOG.md)
+**[Download coda.exe](https://github.com/npr-tami/coda/releases/latest)** · [What's new](CHANGELOG.md)
 
 It is built around **true shuffle**. Shuffle is a uniform Fisher–Yates shuffle, so every order of
 your playlist is equally likely. On top of that are a few rules you can switch on or off:

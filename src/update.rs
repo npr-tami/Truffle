@@ -29,7 +29,7 @@ use sha2::{Digest, Sha256};
 /// that isn't there answers 404 and the next is asked; GitHub also forwards a renamed repo's old
 /// name to the new one).
 const RELEASES: [&str; 2] = [
-    "https://api.github.com/repos/npr-tami/Coda/releases?per_page=20",
+    "https://api.github.com/repos/npr-tami/coda/releases?per_page=20",
     "https://api.github.com/repos/npr-tami/Truffle/releases?per_page=20",
 ];
 /// The exe a release carries, in the order looked for: the new name, then the app's old one.
@@ -558,13 +558,13 @@ mod tests {
         let list = r#"[{"tag_name":"v9.0.0","assets":[{"name":"truffle.exe","size":2,"browser_download_url":"t"}]}]"#;
         let get = |url: &'static str| {
             asked.lock().unwrap().push(url);
-            let answer = if url.contains("/Coda/") { (404, String::new()) } else { (200, list.to_owned()) };
+            let answer = if url.contains("/coda/") { (404, String::new()) } else { (200, list.to_owned()) };
             async move { Ok(answer) }
         };
         let releases = run(releases_from(&RELEASES, get)).unwrap();
         assert_eq!(*asked.lock().unwrap(), RELEASES.to_vec());
         assert_eq!(pick(&releases, OURS).unwrap().url, "t");
-        assert!(RELEASES[0].contains("/npr-tami/Coda/") && RELEASES[1].contains("/npr-tami/Truffle/"));
+        assert!(RELEASES[0].contains("/npr-tami/coda/") && RELEASES[1].contains("/npr-tami/Truffle/"));
     }
 
     #[test]
