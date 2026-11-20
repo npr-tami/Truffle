@@ -472,6 +472,30 @@ pub(super) fn play_state(now: &ListNow) -> PlayState {
     PlayState::Play
 }
 
+/// A playlist's name, owner and cover as far as anything here says.
+#[derive(Debug, Default, PartialEq)]
+pub(super) struct PlaylistFace {
+    pub name: Option<String>,
+    pub owner: String,
+    pub image: Option<String>,
+}
+
+/// A playlist's face: the library's or Spotify's own (`known`) first, each part it lacks from the
+/// card it was opened from (a search result, a profile's), so the page never says just "Playlist"
+/// while one was clicked by name.
+pub(super) fn playlist_face(known: Option<&crate::model::PlaylistSummary>, card: Option<&crate::model::Card>) -> PlaylistFace {
+    let name = known.map(|p| p.name.trim()).filter(|n| !n.is_empty()).or_else(|| card.map(|c| c.name.trim()).filter(|n| !n.is_empty()));
+    let owner = known.map(|p| p.owner_name.trim()).filter(|o| !o.is_empty()).or_else(|| card.map(|c| card_owner(&c.subtitle))).unwrap_or_default();
+    let image = known.and_then(|p| p.image_url.clone()).filter(|u| !u.is_empty()).or_else(|| card.and_then(|c| c.image.clone()).filter(|u| !u.is_empty()));
+    PlaylistFace { name: name.map(str::to_owned), owner: owner.to_owned(), image }
+}
+
+/// The owner in a playlist card's line: "Playlist · wisp" (search) or "By wisp" (a profile's).
+pub(super) fn card_owner(subtitle: &str) -> &str {
+    let s = subtitle.trim();
+    s.strip_prefix("Playlist · ").or_else(|| s.strip_prefix("By ")).map(str::trim).unwrap_or(if s == "Playlist" { "" } else { s })
+}
+
 /// Lays out `text` on one line, elided with "…" to fit `max_width`.
 pub(super) fn one_line(ui: &Ui, text: &str, font: egui::FontId, color: Color32, max_width: f32, strike: bool) -> Arc<Galley> {
     let format = TextFormat {
@@ -511,6 +535,12 @@ pub(super) fn liked_color(p: &Palette) -> Color32 {
 }
 
 impl CodaApp {
+    /// A playlist's name, owner and cover: the library's, else the card it was seen on (see
+    /// `playlist_face`).
+    pub(super) fn playlist_face(&self, uri: &str) -> PlaylistFace {
+        playlist_face(self.playlist(uri), self.seen_playlists.get(uri))
+    }
+
     fn header_info(&self, source: &Source) -> HeaderInfo {
         match source {
             Source::Mix(id) if self.mixes.iter().all(|m| m.id != *id) && id.starts_with(crate::library::MIX_ARTIST) => {
@@ -553,28 +583,21 @@ impl CodaApp {
                 fallback_count: (!self.liked.is_empty()).then(|| self.liked.len() as u32),
                 on_banner: false,
             },
-            Source::Playlist(uri) => match self.playlist(uri) {
-                Some(p) => HeaderInfo {
+            Source::Playlist(uri) => {
+                // In the library, else as the card it was opened from has it (one found by a search).
+                let known = self.playlist(uri);
+                let face = self.playlist_face(uri);
+                HeaderInfo {
                     kind: "Playlist",
-                    title: p.name.clone(),
-                    owner: p.owner_name.clone(),
-                    image_url: p.image_url.clone(),
-                    editable_uri: p.editable.then(|| p.uri.clone()),
+                    title: face.name.unwrap_or_else(|| "Playlist".to_owned()),
+                    owner: face.owner,
+                    image_url: face.image,
+                    editable_uri: known.filter(|p| p.editable).map(|p| p.uri.clone()),
                     round: false,
-                    fallback_count: p.track_count,
+                    fallback_count: known.and_then(|p| p.track_count),
                     on_banner: false,
-                },
-                None => HeaderInfo {
-                    kind: "Playlist",
-                    title: "Playlist".to_owned(),
-                    owner: String::new(),
-                    image_url: None,
-                    editable_uri: None,
-                    round: false,
-                    fallback_count: None,
-                    on_banner: false,
-                },
-            },
+                }
+            }
             Source::Album(_) | Source::Artist(_) => {
                 let info = self.source_info.get(source);
                 let artist = matches!(source, Source::Artist(_));
@@ -768,6 +791,61 @@ impl CodaApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn night_card() -> crate::model::Card {
+        crate::model::Card {
+            uri: "spotify:playlist:night".into(),
+            name: "Night drive radio".into(),
+            subtitle: "Playlist · wisp".into(),
+            image: Some("https://i.scdn.co/image/night".into()),
+        }
+    }
+
+    #[test]
+    fn a_playlist_opened_from_a_card_shows_the_cards_name_owner_and_cover() {
+        // Nothing from the library or Spotify yet: all from the card that was clicked.
+        let face = playlist_face(None, Some(&night_card()));
+        assert_eq!(face, PlaylistFace { name: Some("Night drive radio".into()), owner: "wisp".into(), image: Some("https://i.scdn.co/image/night".into()) });
+        // No card either: nothing known (the page says "Playlist").
+        assert_eq!(playlist_face(None, None), PlaylistFace::default());
+    }
+
+    fn summary(name: &str, owner: &str, image: Option<&str>) -> crate::model::PlaylistSummary {
+        crate::model::PlaylistSummary {
+            uri: "spotify:playlist:night".into(),
+            name: name.into(),
+            description: String::new(),
+            owner_name: owner.into(),
+            image_url: image.map(str::to_owned),
+            track_count: None,
+            revision: String::new(),
+            editable: false,
+            owned: false,
+            owner_id: String::new(),
+        }
+    }
+
+    #[test]
+    fn spotifys_own_answer_wins_and_the_card_fills_what_it_lacks() {
+        let known = summary("Night Drive FM", "wisp.", None);
+        let face = playlist_face(Some(&known), Some(&night_card()));
+        assert_eq!(face.name.as_deref(), Some("Night Drive FM"));
+        assert_eq!(face.owner, "wisp.");
+        // Spotify's header had no picture: the card's cover.
+        assert_eq!(face.image.as_deref(), Some("https://i.scdn.co/image/night"));
+        // An empty name or owner in the answer doesn't blank the card's.
+        let blank = summary("", " ", Some("https://i.scdn.co/image/own"));
+        let face = playlist_face(Some(&blank), Some(&night_card()));
+        assert_eq!(face, PlaylistFace { name: Some("Night drive radio".into()), owner: "wisp".into(), image: Some("https://i.scdn.co/image/own".into()) });
+    }
+
+    #[test]
+    fn the_owner_comes_out_of_a_cards_line() {
+        assert_eq!(card_owner("Playlist · wisp"), "wisp");
+        assert_eq!(card_owner("By wisp"), "wisp");
+        assert_eq!(card_owner("Playlist"), "");
+        assert_eq!(card_owner(""), "");
+    }
 
     fn now(playing: bool, paused: bool, loading: Option<(usize, Option<usize>)>, songs: Option<usize>, heard: usize) -> ListNow {
         ListNow { playing, paused, loading, songs, heard }

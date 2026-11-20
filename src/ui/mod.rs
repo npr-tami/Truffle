@@ -304,6 +304,9 @@ pub struct CodaApp {
     new_playlist: Option<String>,
     /// The playlist "Delete…" was clicked for: the question box is open.
     confirm_remove: Option<String>,
+    /// Playlist cards seen this run (search, profiles, artist pages), by URI: their name, owner and
+    /// cover for a page opened from one that isn't in the library.
+    seen_playlists: std::collections::HashMap<String, crate::model::Card>,
     /// The "Already in" questions: one for each add that found songs the playlist has, asked one
     /// at a time.
     already_in: library::AlreadyInState,
@@ -508,6 +511,7 @@ impl CodaApp {
             pending_play: None,
             new_playlist: None,
             confirm_remove: None,
+            seen_playlists: std::collections::HashMap::new(),
             already_in: library::AlreadyInState::default(),
             dupes: None,
             webapi_connected: false,
@@ -897,6 +901,13 @@ impl CodaApp {
         self.playlists.iter().find(|p| p.uri == uri)
     }
 
+    /// Keeps the playlist cards among `cards` (see `seen_playlists`).
+    fn remember_playlist_cards(&mut self, cards: &[crate::model::Card]) {
+        for c in cards.iter().filter(|c| c.uri.starts_with("spotify:playlist:") && !c.name.is_empty()) {
+            self.seen_playlists.insert(c.uri.clone(), c.clone());
+        }
+    }
+
     /// A dialog box is open over the window (its keys are its own).
     fn dialog_open(&self) -> bool {
         self.new_playlist.is_some()
@@ -1016,6 +1027,7 @@ impl CodaApp {
             Event::FollowDone { uri, follow, generation, ok } => self.follow_done(&uri, follow, generation, ok),
             Event::UserPage(page) => {
                 self.profiles_failed.remove(&page.username);
+                self.remember_playlist_cards(&page.playlists);
                 self.user_pages.insert(page.username.clone(), page);
             }
             Event::People(people) => {
@@ -1202,6 +1214,7 @@ impl CodaApp {
             Event::Deck(deck) => self.deck = deck,
             Event::RoundProgress(progress) => self.round_progress = progress,
             Event::SearchResults(results) => {
+                self.remember_playlist_cards(&results.playlists);
                 self.fonts.scan_all(ctx, results.tracks.iter().map(|t| t.name.as_str()));
                 self.search.receive(results);
                 if self.search.play_top && self.search.results.is_some() {
@@ -1234,6 +1247,7 @@ impl CodaApp {
                         a.image = info.image.clone();
                     }
                 }
+                self.remember_playlist_cards(&info.albums);
                 self.source_info.insert(info.source.clone(), info);
             }
             Event::Listening(status) => self.listening = status,

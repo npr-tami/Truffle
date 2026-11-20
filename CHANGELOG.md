@@ -2,6 +2,11 @@
 
 The newest version is at the top.
 
+## 0.1.4 · 20/11/2026
+
+- A playlist opened from search (or from someone's profile) shows its name, owner and cover, not just "Playlist"
+- Album, artist and playlist names in search results use two lines before they're cut off, and the whole name shows when you hover the card
+
 ## 0.1.3 · 16/11/2026
 
 - Truffle is now called Coda: new name, new icon and logo. Your settings, sign-ins, likes, listen-along links and queue come over by themselves, and updates keep working.

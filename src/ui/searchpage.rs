@@ -99,6 +99,26 @@ fn highlighted(ui: &Ui, text: &str, q: &str, font: egui::FontId, color: Color32,
 
 /// [`highlighted`] with the match found already.
 fn highlighted_at(ui: &Ui, text: &str, found: Option<Range<usize>>, font: egui::FontId, color: Color32, accent: Color32, width: f32) -> Arc<egui::Galley> {
+    ui.painter().layout_job(highlight_job(text, found, font, color, accent, width, 1))
+}
+
+/// A card's name (`.card .nm`): [`highlighted`] on up to two lines, "…" only after the second;
+/// `centred`: each line centred on x = 0 (under an artist's round picture).
+#[allow(clippy::too_many_arguments)]
+fn card_name(ui: &Ui, text: &str, q: &str, font: egui::FontId, color: Color32, accent: Color32, width: f32, centred: bool) -> Arc<egui::Galley> {
+    let mut job = highlight_job(text, find_folded(text, q), font, color, accent, width, CARD_NAME_ROWS);
+    if centred {
+        job.halign = egui::Align::Center;
+    }
+    ui.painter().layout_job(job)
+}
+
+/// The lines a card's name may take; every card keeps room for them, so the lines under line up.
+const CARD_NAME_ROWS: usize = 2;
+
+/// The words of [`highlighted_at`], wrapped at `width` on at most `rows` lines, the last one
+/// ending in "…" when it doesn't all fit.
+fn highlight_job(text: &str, found: Option<Range<usize>>, font: egui::FontId, color: Color32, accent: Color32, width: f32, rows: usize) -> LayoutJob {
     let mut job = LayoutJob::default();
     let fmt = |c: Color32| TextFormat { font_id: font.clone(), color: c, ..Default::default() };
     match found {
@@ -109,8 +129,12 @@ fn highlighted_at(ui: &Ui, text: &str, found: Option<Range<usize>>, font: egui::
         }
         None => job.append(text, 0.0, fmt(color)),
     }
-    job.wrap = TextWrapping::truncate_at_width(width.max(1.0));
-    ui.painter().layout_job(job)
+    job.wrap = if rows <= 1 {
+        TextWrapping::truncate_at_width(width.max(1.0))
+    } else {
+        TextWrapping { max_width: width.max(1.0), max_rows: rows, break_anywhere: false, overflow_character: Some('…') }
+    };
+    job
 }
 
 /// The chips from `top`, on more lines when they don't fit in `w` (a narrow window): where each
@@ -660,9 +684,12 @@ impl CodaApp {
     #[allow(clippy::too_many_arguments)]
     fn search_card(&mut self, ui: &mut Ui, at: egui::Pos2, size: f32, cw: f32, card: &Card, round: bool, q: &str, act: &mut Option<Act>, on_top: &mut OnTop) -> f32 {
         let p = self.palette;
-        let h = size + 6.0 + 15.0 + 14.0;
+        // Room for two lines of name under every picture, so the lines under them line up.
+        let line = ui.fonts_mut(|f| f.row_height(&medium(11.5)));
+        let h = size + 6.0 + line * CARD_NAME_ROWS as f32 + 14.0;
         let whole = Rect::from_min_size(at, vec2(cw, h));
-        let resp = ui.interact(whole, Id::new(("search-card", &card.uri)), Sense::click()).on_hover_cursor(CursorIcon::PointingHand);
+        // The whole name on hover, for one cut off after its second line.
+        let resp = ui.interact(whole, Id::new(("search-card", &card.uri)), Sense::click()).on_hover_cursor(CursorIcon::PointingHand).on_hover_text(&card.name);
         let pic = Rect::from_min_size(pos2(if round { at.x + (cw - size) / 2.0 } else { at.x }, at.y), vec2(size, size));
         let r = if round { (size / 2.0) as u8 } else { 4 };
         if card.uri.starts_with("spotify:playlist:") {
@@ -679,14 +706,18 @@ impl CodaApp {
                 ui.painter().rect_filled(pic, CornerRadius::same(r), Color32::from_white_alpha(10));
             }
         }
-        let name = highlighted(ui, &card.name, q, medium(11.5), p.text, p.accent_ink, cw);
+        let name = card_name(ui, &card.name, q, medium(11.5), p.text, p.accent_ink, cw, round);
         let sub_text = if round { "Artist".to_owned() } else { card.subtitle.clone() };
         let sub = one_line(ui, &sub_text, regular(10.5), p.text_weak, cw, false);
         let ny = pic.bottom() + 6.0;
-        let nh = name.size().y;
-        let (nx, sx) = if round { (at.x + (cw - name.size().x) / 2.0, at.x + (cw - sub.size().x) / 2.0) } else { (at.x, at.x) };
-        ui.painter().galley(pos2(nx, ny), name, p.text);
-        ui.painter().galley(pos2(sx, ny + nh), sub, p.text_weak);
+        let sy = ny + line * CARD_NAME_ROWS as f32;
+        if round {
+            ui.painter().galley(pos2(at.x + cw / 2.0, ny), name, p.text);
+            ui.painter().galley(pos2(at.x + (cw - sub.size().x) / 2.0, sy), sub, p.text_weak);
+        } else {
+            ui.painter().galley(pos2(at.x, ny), name, p.text);
+            ui.painter().galley(pos2(at.x, sy), sub, p.text_weak);
+        }
         if resp.clicked() {
             *act = Some(Act::Open(source_of(&card.uri)));
         }
@@ -709,10 +740,12 @@ impl CodaApp {
         // The cards grow so the rows end at both edges.
         let (cols, cw) = wide::row_fit(w, base, gap);
         let pic = if name == "Playlists" { (cw * 0.76).round() } else { cw };
+        // A card, its two lines of name and the gap to the next row.
+        let row_step = pic + 6.0 + ui.fonts_mut(|f| f.row_height(&medium(11.5))) * CARD_NAME_ROWS as f32 + 14.0 + 19.0;
         let mut bottom = y;
         let mut on_top = OnTop::default();
         for (k, card) in cards.iter().enumerate() {
-            let at = pos2(left + (k % cols) as f32 * (cw + gap), y + (k / cols) as f32 * (pic + 36.0 + 18.0));
+            let at = pos2(left + (k % cols) as f32 * (cw + gap), y + (k / cols) as f32 * row_step);
             let h = self.search_card(ui, at, pic, cw, card, round, q, act, &mut on_top);
             bottom = bottom.max(at.y + h);
         }
@@ -755,6 +788,29 @@ mod tests {
         r.albums = vec![card("Beyoncé")];
         r.artists = vec![card("Beyoncé Tribute Band")];
         assert!(matches!(top_result(&r, &[]), Some(Top::Card(_, "Album"))));
+    }
+
+    #[test]
+    fn a_cards_name_wraps_to_two_lines_before_it_is_cut() {
+        let ctx = ctx();
+        let lay = |text: &str, rows: usize| {
+            let job = highlight_job(text, find_folded(text, "radio"), crate::ui::theme::medium(11.5), Color32::WHITE, Color32::RED, 100.0, rows);
+            ctx.fonts_mut(|f| f.layout_job(job))
+        };
+        // Short: one line, whole.
+        let g = lay("Radio", CARD_NAME_ROWS);
+        assert_eq!((g.rows.len(), g.text()), (1, "Radio"));
+        // Longer than a line: the second line shows the rest, no "…".
+        let g = lay("Late night city radio", CARD_NAME_ROWS);
+        assert_eq!(g.rows.len(), 2);
+        assert!(!g.elided && !g.text().contains('…'), "{:?}", g.text());
+        // Far too long: two lines, then "…".
+        let g = lay("Every radio station in the city, every song, every DJ and every ad, all of it", CARD_NAME_ROWS);
+        assert_eq!(g.rows.len(), 2);
+        assert!(g.elided);
+        assert!(g.rows.iter().all(|r| r.rect().width() <= 100.5));
+        // One line (the top result, song rows): cut as before.
+        assert_eq!(lay("Late night city radio", 1).rows.len(), 1);
     }
 
     fn person(id: &str, name: &str) -> Card {

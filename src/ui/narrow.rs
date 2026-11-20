@@ -267,7 +267,7 @@ impl CodaApp {
         use crate::model::Source;
         match s {
             Source::LikedSongs => "Liked Songs".to_owned(),
-            Source::Playlist(uri) => self.playlist(uri).map(|pl| pl.name.clone()).unwrap_or_default(),
+            Source::Playlist(uri) => self.playlist_face(uri).name.unwrap_or_default(),
             Source::Album(_) | Source::Artist(_) => self.source_info.get(s).map(|i| i.title.clone()).unwrap_or_default(),
             Source::Mix(id) => self.mixes.iter().find(|m| m.id == *id).map(|m| m.name.clone()).unwrap_or_default(),
         }
